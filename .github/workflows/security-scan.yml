@@ -8,7 +8,7 @@ name: Security scan
 # or secrets, so there's nothing valuable for an attacker to poison.
 on:
   push:
-    branches: [main]
+    branches: [master]
   pull_request:
 
 # Least privilege: this workflow only needs to read the repo.
