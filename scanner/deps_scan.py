@@ -3,6 +3,8 @@ Wrapper for running pip-audit and normalizing its output into the
 tool's unified finding format. Checks requirements.txt against the
 osv.dev known-vulnerability database.
 """
+from __future__ import annotations
+
 import json
 import subprocess
 

@@ -2,18 +2,30 @@
 Wrapper for running bandit and normalizing its output into the tool's
 unified finding format.
 """
+from __future__ import annotations
+
 import json
+import os
 import subprocess
 
 
-def run_bandit(target_path: str) -> list[dict]:
+def run_bandit(target_paths: str | list[str]) -> list[dict]:
     """
-    Runs bandit on a given path (file or directory) and returns a
-    normalized list of findings. Each finding is normalized to a common
-    structure so it can be merged with findings from other tools.
+    Runs bandit on one or more paths (files and/or directories) and
+    returns a normalized list of findings.
+
+    Accepts either a single path (str) or a list of specific file
+    paths - the latter is used by the aggregator to scan only files
+    that changed since the last run (see cache.py).
     """
+    if isinstance(target_paths, str):
+        target_paths = [target_paths]
+
+    if not target_paths:
+        return []
+
     result = subprocess.run(
-        ["bandit", "-r", "-f", "json", target_path],
+        ["bandit", "-r", "-f", "json", *target_paths],
         capture_output=True,
         text=True,
     )
@@ -35,7 +47,11 @@ def run_bandit(target_path: str) -> list[dict]:
             "category": "code_vulnerability",
             "rule_id": issue["test_id"],
             "rule_name": issue["test_name"],
-            "file": issue["filename"],
+            # bandit prefixes filenames with "./" - normalize so this
+            # matches the exact paths we pass in (important for the
+            # cache in aggregator.py to correctly attribute findings
+            # back to the file that produced them)
+            "file": os.path.normpath(issue["filename"]),
             "line": issue["line_number"],
             "severity": issue["issue_severity"],       # LOW / MEDIUM / HIGH
             "confidence": issue["issue_confidence"],    # LOW / MEDIUM / HIGH

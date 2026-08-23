@@ -4,16 +4,29 @@ tool's unified finding format.
 detect-secrets catches both known patterns (AWS key, GitHub token, etc.)
 and high-entropy strings that look like secrets even without a keyword.
 """
+from __future__ import annotations
+
 import json
 import subprocess
 
 
-def run_secrets_scan(target_path: str) -> list[dict]:
+def run_secrets_scan(target_paths: str | list[str]) -> list[dict]:
+    """
+    Accepts either a single path (str) or a list of specific file
+    paths - the latter is used by the aggregator to scan only files
+    that changed since the last run (see cache.py).
+    """
+    if isinstance(target_paths, str):
+        target_paths = [target_paths]
+
+    if not target_paths:
+        return []
+
     result = subprocess.run(
         # --all-files: critical! without it, detect-secrets skips files
         # that start with a dot (.env, .env.local, etc.) and relies on
         # git tracking alone
-        ["detect-secrets", "scan", target_path, "--all-files"],
+        ["detect-secrets", "scan", *target_paths, "--all-files"],
         capture_output=True,
         text=True,
     )

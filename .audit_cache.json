@@ -1,0 +1,760 @@
+{
+  "files": {
+    "test_samples/requirements.txt": {
+      "hash": "b37fded944f2b788f948963a026efbf4990cc9cb5c7561b513f125dda447e941",
+      "bandit": [],
+      "secrets": []
+    },
+    "test_samples/vulnerable_app.py": {
+      "hash": "4f1f5770cc93b6c300c2e9ed2ad041024ce88b613535478d19bda058fe3ca565",
+      "bandit": [
+        {
+          "source_tool": "bandit",
+          "category": "code_vulnerability",
+          "rule_id": "B404",
+          "rule_name": "blacklist",
+          "file": "test_samples/vulnerable_app.py",
+          "line": 5,
+          "severity": "LOW",
+          "confidence": "HIGH",
+          "raw_description": "Consider possible security implications associated with the subprocess module.",
+          "code_snippet": "4 \"\"\"\n5 import subprocess\n6 import hashlib\n",
+          "cwe": 78,
+          "more_info_url": "https://bandit.readthedocs.io/en/1.8.6/blacklists/blacklist_imports.html#b404-import-subprocess"
+        },
+        {
+          "source_tool": "bandit",
+          "category": "code_vulnerability",
+          "rule_id": "B105",
+          "rule_name": "hardcoded_password_string",
+          "file": "test_samples/vulnerable_app.py",
+          "line": 15,
+          "severity": "LOW",
+          "confidence": "MEDIUM",
+          "raw_description": "Possible hardcoded password: 'Sup3rS3cretP@ss2026!'",
+          "code_snippet": "14 AWS_ACCESS_KEY = \"AKIAIOSFODNN7EXAMPLE\"\n15 DATABASE_PASSWORD = \"Sup3rS3cretP@ss2026!\"\n16 \n",
+          "cwe": 259,
+          "more_info_url": "https://bandit.readthedocs.io/en/1.8.6/plugins/b105_hardcoded_password_string.html"
+        },
+        {
+          "source_tool": "bandit",
+          "category": "code_vulnerability",
+          "rule_id": "B608",
+          "rule_name": "hardcoded_sql_expressions",
+          "file": "test_samples/vulnerable_app.py",
+          "line": 21,
+          "severity": "MEDIUM",
+          "confidence": "LOW",
+          "raw_description": "Possible SQL injection vector through string-based query construction.",
+          "code_snippet": "20     conn = sqlite3.connect(\"app.db\")\n21     query = \"SELECT * FROM users WHERE id = \" + user_id\n22     return conn.execute(query).fetchone()\n",
+          "cwe": 89,
+          "more_info_url": "https://bandit.readthedocs.io/en/1.8.6/plugins/b608_hardcoded_sql_expressions.html"
+        },
+        {
+          "source_tool": "bandit",
+          "category": "code_vulnerability",
+          "rule_id": "B602",
+          "rule_name": "subprocess_popen_with_shell_equals_true",
+          "file": "test_samples/vulnerable_app.py",
+          "line": 27,
+          "severity": "HIGH",
+          "confidence": "HIGH",
+          "raw_description": "subprocess call with shell=True identified, security issue.",
+          "code_snippet": "26 def ping_host(hostname):\n27     subprocess.call(f\"ping -c 1 {hostname}\", shell=True)\n28 \n",
+          "cwe": 78,
+          "more_info_url": "https://bandit.readthedocs.io/en/1.8.6/plugins/b602_subprocess_popen_with_shell_equals_true.html"
+        },
+        {
+          "source_tool": "bandit",
+          "category": "code_vulnerability",
+          "rule_id": "B324",
+          "rule_name": "hashlib",
+          "file": "test_samples/vulnerable_app.py",
+          "line": 32,
+          "severity": "HIGH",
+          "confidence": "HIGH",
+          "raw_description": "Use of weak MD5 hash for security. Consider usedforsecurity=False",
+          "code_snippet": "31 def hash_password(password):\n32     return hashlib.md5(password.encode()).hexdigest()\n33 \n",
+          "cwe": 327,
+          "more_info_url": "https://bandit.readthedocs.io/en/1.8.6/plugins/b324_hashlib.html"
+        },
+        {
+          "source_tool": "bandit",
+          "category": "code_vulnerability",
+          "rule_id": "B506",
+          "rule_name": "yaml_load",
+          "file": "test_samples/vulnerable_app.py",
+          "line": 37,
+          "severity": "MEDIUM",
+          "confidence": "HIGH",
+          "raw_description": "Use of unsafe yaml load. Allows instantiation of arbitrary objects. Consider yaml.safe_load().",
+          "code_snippet": "36 def load_config(yaml_string):\n37     return yaml.load(yaml_string)\n38 \n",
+          "cwe": 20,
+          "more_info_url": "https://bandit.readthedocs.io/en/1.8.6/plugins/b506_yaml_load.html"
+        },
+        {
+          "source_tool": "bandit",
+          "category": "code_vulnerability",
+          "rule_id": "B307",
+          "rule_name": "blacklist",
+          "file": "test_samples/vulnerable_app.py",
+          "line": 44,
+          "severity": "MEDIUM",
+          "confidence": "HIGH",
+          "raw_description": "Use of possibly insecure function - consider using safer ast.literal_eval.",
+          "code_snippet": "43     term = request.args.get(\"q\")\n44     result = eval(f\"'{term}' in database\")  # dangerous use of eval\n45     return str(result)\n",
+          "cwe": 78,
+          "more_info_url": "https://bandit.readthedocs.io/en/1.8.6/blacklists/blacklist_calls.html#b307-eval"
+        },
+        {
+          "source_tool": "bandit",
+          "category": "code_vulnerability",
+          "rule_id": "B201",
+          "rule_name": "flask_debug_true",
+          "file": "test_samples/vulnerable_app.py",
+          "line": 49,
+          "severity": "HIGH",
+          "confidence": "MEDIUM",
+          "raw_description": "A Flask app appears to be run with debug=True, which exposes the Werkzeug debugger and allows the execution of arbitrary code.",
+          "code_snippet": "48 if __name__ == \"__main__\":\n49     app.run(host=\"0.0.0.0\", debug=True)\n",
+          "cwe": 94,
+          "more_info_url": "https://bandit.readthedocs.io/en/1.8.6/plugins/b201_flask_debug_true.html"
+        },
+        {
+          "source_tool": "bandit",
+          "category": "code_vulnerability",
+          "rule_id": "B104",
+          "rule_name": "hardcoded_bind_all_interfaces",
+          "file": "test_samples/vulnerable_app.py",
+          "line": 49,
+          "severity": "MEDIUM",
+          "confidence": "MEDIUM",
+          "raw_description": "Possible binding to all interfaces.",
+          "code_snippet": "48 if __name__ == \"__main__\":\n49     app.run(host=\"0.0.0.0\", debug=True)\n",
+          "cwe": 605,
+          "more_info_url": "https://bandit.readthedocs.io/en/1.8.6/plugins/b104_hardcoded_bind_all_interfaces.html"
+        }
+      ],
+      "secrets": [
+        {
+          "source_tool": "detect-secrets",
+          "category": "exposed_secret",
+          "rule_id": "aws_access_key",
+          "rule_name": "AWS Access Key",
+          "file": "test_samples/vulnerable_app.py",
+          "line": 14,
+          "severity": "HIGH",
+          "confidence": "MEDIUM",
+          "raw_description": "Possible secret found of type 'AWS Access Key'",
+          "code_snippet": null,
+          "cwe": 798,
+          "more_info_url": "https://cwe.mitre.org/data/definitions/798.html"
+        },
+        {
+          "source_tool": "detect-secrets",
+          "category": "exposed_secret",
+          "rule_id": "secret_keyword",
+          "rule_name": "Secret Keyword",
+          "file": "test_samples/vulnerable_app.py",
+          "line": 15,
+          "severity": "HIGH",
+          "confidence": "MEDIUM",
+          "raw_description": "Possible secret found of type 'Secret Keyword'",
+          "code_snippet": null,
+          "cwe": 798,
+          "more_info_url": "https://cwe.mitre.org/data/definitions/798.html"
+        }
+      ]
+    },
+    "test_samples/.env": {
+      "hash": "ef86609d30be91ba540b25ea87c2b697aa269594c058ad6b081748faa3a9c759",
+      "bandit": [],
+      "secrets": [
+        {
+          "source_tool": "detect-secrets",
+          "category": "exposed_secret",
+          "rule_id": "base64_high_entropy_string",
+          "rule_name": "Base64 High Entropy String",
+          "file": "test_samples/.env",
+          "line": 2,
+          "severity": "HIGH",
+          "confidence": "MEDIUM",
+          "raw_description": "Possible secret found of type 'Base64 High Entropy String'",
+          "code_snippet": null,
+          "cwe": 798,
+          "more_info_url": "https://cwe.mitre.org/data/definitions/798.html"
+        },
+        {
+          "source_tool": "detect-secrets",
+          "category": "exposed_secret",
+          "rule_id": "secret_keyword",
+          "rule_name": "Secret Keyword",
+          "file": "test_samples/.env",
+          "line": 2,
+          "severity": "HIGH",
+          "confidence": "MEDIUM",
+          "raw_description": "Possible secret found of type 'Secret Keyword'",
+          "code_snippet": null,
+          "cwe": 798,
+          "more_info_url": "https://cwe.mitre.org/data/definitions/798.html"
+        }
+      ]
+    }
+  },
+  "dependencies": {
+    "b37fded944f2b788f948963a026efbf4990cc9cb5c7561b513f125dda447e941": [
+      {
+        "source_tool": "pip-audit",
+        "category": "vulnerable_dependency",
+        "rule_id": "PYSEC-2019-179",
+        "rule_name": "flask 0.12",
+        "file": "test_samples/requirements.txt",
+        "line": null,
+        "severity": "UNRATED",
+        "confidence": "HIGH",
+        "raw_description": "The Pallets Project Flask before 1.0 is affected by: unexpected memory usage. The impact is: denial of service. The attack vector is: crafted encoded JSON data. The fixed version is: 1. NOTE: this may overlap CVE-2018-1000656.",
+        "code_snippet": null,
+        "cwe": null,
+        "more_info_url": "https://osv.dev/vulnerability/PYSEC-2019-179",
+        "fix_versions": [
+          "1.0"
+        ],
+        "aliases": [
+          "CVE-2019-1010083",
+          "GHSA-5wv5-4vpf-pj6m"
+        ]
+      },
+      {
+        "source_tool": "pip-audit",
+        "category": "vulnerable_dependency",
+        "rule_id": "PYSEC-2018-66",
+        "rule_name": "flask 0.12",
+        "file": "test_samples/requirements.txt",
+        "line": null,
+        "severity": "UNRATED",
+        "confidence": "HIGH",
+        "raw_description": "The Pallets Project flask version Before 0.12.3 contains a CWE-20: Improper Input Validation vulnerability in flask that can result in Large amount of memory usage possibly leading to denial of service. This attack appear to be exploitable via Attacker provides JSON data in incorrect encoding. This vulnerability appears to have been fixed in 0.12.3. NOTE: this may overlap CVE-2019-1010083.",
+        "code_snippet": null,
+        "cwe": null,
+        "more_info_url": "https://osv.dev/vulnerability/PYSEC-2018-66",
+        "fix_versions": [
+          "0.12.3"
+        ],
+        "aliases": [
+          "GHSA-562c-5r94-xh97",
+          "CVE-2018-1000656"
+        ]
+      },
+      {
+        "source_tool": "pip-audit",
+        "category": "vulnerable_dependency",
+        "rule_id": "PYSEC-2023-62",
+        "rule_name": "flask 0.12",
+        "file": "test_samples/requirements.txt",
+        "line": null,
+        "severity": "UNRATED",
+        "confidence": "HIGH",
+        "raw_description": "Flask is a lightweight WSGI web application framework. When all of the following conditions are met, a response containing data intended for one client may be cached and subsequently sent by the proxy to other clients. If the proxy also caches `Set-Cookie` headers, it may send one client's `session` cookie to other clients. The severity depends on the application's use of the session and the proxy's behavior regarding cookies. The risk depends on all these conditions being met.  1. The application must be hosted behind a caching proxy that does not strip cookies or ignore responses with cookies. 2. The application sets `session.permanent = True` 3. The application does not access or modify the session at any point during a request. 4. `SESSION_REFRESH_EACH_REQUEST` enabled (the default). 5. The application does not set a `Cache-Control` header to indicate that a page is private or should not be cached.  This happens because vulnerable versions of Flask only set the `Vary: Cookie` header when the session is accessed or modified, not when it is refreshed (re-sent to update the expiration) without being accessed or modified. This issue has been fixed in versions 2.3.2 and 2.2.5.",
+        "code_snippet": null,
+        "cwe": null,
+        "more_info_url": "https://osv.dev/vulnerability/PYSEC-2023-62",
+        "fix_versions": [
+          "2.2.5",
+          "2.3.2"
+        ],
+        "aliases": [
+          "GHSA-m2qf-hxjv-5gpq",
+          "CVE-2023-30861"
+        ]
+      },
+      {
+        "source_tool": "pip-audit",
+        "category": "vulnerable_dependency",
+        "rule_id": "PYSEC-2026-2151",
+        "rule_name": "flask 0.12",
+        "file": "test_samples/requirements.txt",
+        "line": null,
+        "severity": "UNRATED",
+        "confidence": "HIGH",
+        "raw_description": "Flask is a web server gateway interface (WSGI) web application framework. In versions 3.1.2 and below, when the session object is accessed, Flask should set the Vary: Cookie header., resulting in a Use of Cache Containing Sensitive Information vulnerability. The logic instructs caches not to cache the response, as it may contain information specific to a logged in user. This is handled in most cases, but some forms of access such as the Python in operator were overlooked. The severity and risk depend on the application being hosted behind a caching proxy that doesn't ignore responses with cookies, not setting a Cache-Control header to mark pages as private or non-cacheable, and accessing the session in a way that only touches keys without reading values or mutating the session. The issue has been fixed in version 3.1.3.",
+        "code_snippet": null,
+        "cwe": null,
+        "more_info_url": "https://osv.dev/vulnerability/PYSEC-2026-2151",
+        "fix_versions": [
+          "3.1.3"
+        ],
+        "aliases": [
+          "GHSA-68rp-wp8r-4726",
+          "CVE-2026-27205"
+        ]
+      },
+      {
+        "source_tool": "pip-audit",
+        "category": "vulnerable_dependency",
+        "rule_id": "PYSEC-2020-176",
+        "rule_name": "pyyaml 5.1",
+        "file": "test_samples/requirements.txt",
+        "line": null,
+        "severity": "UNRATED",
+        "confidence": "HIGH",
+        "raw_description": "PyYAML 5.1 through 5.1.2 has insufficient restrictions on the load and load_all functions because of a class deserialization issue, e.g., Popen is a class in the subprocess module. NOTE: this issue exists because of an incomplete fix for CVE-2017-18342.",
+        "code_snippet": null,
+        "cwe": null,
+        "more_info_url": "https://osv.dev/vulnerability/PYSEC-2020-176",
+        "fix_versions": [
+          "5.2b1"
+        ],
+        "aliases": [
+          "GHSA-3pqx-4fqf-j49f",
+          "CVE-2019-20477"
+        ]
+      },
+      {
+        "source_tool": "pip-audit",
+        "category": "vulnerable_dependency",
+        "rule_id": "PYSEC-2020-96",
+        "rule_name": "pyyaml 5.1",
+        "file": "test_samples/requirements.txt",
+        "line": null,
+        "severity": "UNRATED",
+        "confidence": "HIGH",
+        "raw_description": "A vulnerability was discovered in the PyYAML library in versions before 5.3.1, where it is susceptible to arbitrary code execution when it processes untrusted YAML files through the full_load method or with the FullLoader loader. Applications that use the library to process untrusted input may be vulnerable to this flaw. An attacker could use this flaw to execute arbitrary code on the system by abusing the python/object/new constructor.",
+        "code_snippet": null,
+        "cwe": null,
+        "more_info_url": "https://osv.dev/vulnerability/PYSEC-2020-96",
+        "fix_versions": [
+          "5.3.1"
+        ],
+        "aliases": [
+          "CVE-2025-50460",
+          "GHSA-6757-jp84-gxfx",
+          "CVE-2020-1747",
+          "GHSA-fm6c-f59h-7mmg"
+        ]
+      },
+      {
+        "source_tool": "pip-audit",
+        "category": "vulnerable_dependency",
+        "rule_id": "PYSEC-2021-142",
+        "rule_name": "pyyaml 5.1",
+        "file": "test_samples/requirements.txt",
+        "line": null,
+        "severity": "UNRATED",
+        "confidence": "HIGH",
+        "raw_description": "A vulnerability was discovered in the PyYAML library in versions before 5.4, where it is susceptible to arbitrary code execution when it processes untrusted YAML files through the full_load method or with the FullLoader loader. Applications that use the library to process untrusted input may be vulnerable to this flaw. This flaw allows an attacker to execute arbitrary code on the system by abusing the python/object/new constructor. This flaw is due to an incomplete fix for CVE-2020-1747.",
+        "code_snippet": null,
+        "cwe": null,
+        "more_info_url": "https://osv.dev/vulnerability/PYSEC-2021-142",
+        "fix_versions": [
+          "5.4"
+        ],
+        "aliases": [
+          "GHSA-8q59-q68h-6hv4",
+          "CVE-2020-14343"
+        ]
+      },
+      {
+        "source_tool": "pip-audit",
+        "category": "vulnerable_dependency",
+        "rule_id": "PYSEC-2018-28",
+        "rule_name": "requests 2.19.1",
+        "file": "test_samples/requirements.txt",
+        "line": null,
+        "severity": "UNRATED",
+        "confidence": "HIGH",
+        "raw_description": "The Requests package before 2.20.0 for Python sends an HTTP Authorization header to an http URI upon receiving a same-hostname https-to-http redirect, which makes it easier for remote attackers to discover credentials by sniffing the network.",
+        "code_snippet": null,
+        "cwe": null,
+        "more_info_url": "https://osv.dev/vulnerability/PYSEC-2018-28",
+        "fix_versions": [
+          "2.20.0"
+        ],
+        "aliases": [
+          "GHSA-x84v-xcm2-53pg",
+          "CVE-2018-18074"
+        ]
+      },
+      {
+        "source_tool": "pip-audit",
+        "category": "vulnerable_dependency",
+        "rule_id": "PYSEC-2023-74",
+        "rule_name": "requests 2.19.1",
+        "file": "test_samples/requirements.txt",
+        "line": null,
+        "severity": "UNRATED",
+        "confidence": "HIGH",
+        "raw_description": "Requests is a HTTP library. Since Requests 2.3.0, Requests has been leaking Proxy-Authorization headers to destination servers when redirected to an HTTPS endpoint. This is a product of how we use `rebuild_proxies` to reattach the `Proxy-Authorization` header to requests. For HTTP connections sent through the tunnel, the proxy will identify the header in the request itself and remove it prior to forwarding to the destination server. However when sent over HTTPS, the `Proxy-Authorization` header must be sent in the CONNECT request as the proxy has no visibility into the tunneled request. This results in Requests forwarding proxy credentials to the destination server unintentionally, allowing a malicious actor to potentially exfiltrate sensitive information. This issue has been patched in version 2.31.0.  ",
+        "code_snippet": null,
+        "cwe": null,
+        "more_info_url": "https://osv.dev/vulnerability/PYSEC-2023-74",
+        "fix_versions": [
+          "2.31.0"
+        ],
+        "aliases": [
+          "CVE-2023-32681",
+          "GHSA-j8r2-6x86-q33q"
+        ]
+      },
+      {
+        "source_tool": "pip-audit",
+        "category": "vulnerable_dependency",
+        "rule_id": "PYSEC-2026-1873",
+        "rule_name": "requests 2.19.1",
+        "file": "test_samples/requirements.txt",
+        "line": null,
+        "severity": "UNRATED",
+        "confidence": "HIGH",
+        "raw_description": "When using a `requests.Session`, if the first request to a given origin is made with `verify=False`, TLS certificate verification may remain disabled for all subsequent requests to that origin, even if `verify=True` is explicitly specified later.  This occurs because the underlying connection is reused from the session's connection pool, causing the initial TLS verification setting to persist for the lifetime of the pooled connection. As a result, applications may unintentionally send requests without certificate verification, leading to potential man-in-the-middle attacks and compromised confidentiality or integrity.  This behavior affects versions of `requests` prior to 2.32.0.",
+        "code_snippet": null,
+        "cwe": null,
+        "more_info_url": "https://osv.dev/vulnerability/PYSEC-2026-1873",
+        "fix_versions": [
+          "2.32.0"
+        ],
+        "aliases": [
+          "GHSA-9wx4-h78v-vm56",
+          "CVE-2024-35195"
+        ]
+      },
+      {
+        "source_tool": "pip-audit",
+        "category": "vulnerable_dependency",
+        "rule_id": "PYSEC-2026-1872",
+        "rule_name": "requests 2.19.1",
+        "file": "test_samples/requirements.txt",
+        "line": null,
+        "severity": "UNRATED",
+        "confidence": "HIGH",
+        "raw_description": "### Impact  Due to a URL parsing issue, Requests releases prior to 2.32.4 may leak .netrc credentials to third parties for specific maliciously-crafted URLs.  ### Workarounds For older versions of Requests, use of the .netrc file can be disabled with `trust_env=False` on your Requests Session ([docs](https://requests.readthedocs.io/en/latest/api/#requests.Session.trust_env)).  ### References https://github.com/psf/requests/pull/6965 https://seclists.org/fulldisclosure/2025/Jun/2",
+        "code_snippet": null,
+        "cwe": null,
+        "more_info_url": "https://osv.dev/vulnerability/PYSEC-2026-1872",
+        "fix_versions": [
+          "2.32.4"
+        ],
+        "aliases": [
+          "GHSA-9hjg-9r4m-mvj7",
+          "CVE-2024-47081"
+        ]
+      },
+      {
+        "source_tool": "pip-audit",
+        "category": "vulnerable_dependency",
+        "rule_id": "PYSEC-2026-2275",
+        "rule_name": "requests 2.19.1",
+        "file": "test_samples/requirements.txt",
+        "line": null,
+        "severity": "UNRATED",
+        "confidence": "HIGH",
+        "raw_description": "Requests is a HTTP library. Prior to version 2.33.0, the `requests.utils.extract_zipped_paths()` utility function uses a predictable filename when extracting files from zip archives into the system temporary directory. If the target file already exists, it is reused without validation. A local attacker with write access to the temp directory could pre-create a malicious file that would be loaded in place of the legitimate one. Standard usage of the Requests library is not affected by this vulnerability. Only applications that call `extract_zipped_paths()` directly are impacted. Starting in version 2.33.0, the library extracts files to a non-deterministic location. If developers are unable to upgrade, they can set `TMPDIR` in their environment to a directory with restricted write access.",
+        "code_snippet": null,
+        "cwe": null,
+        "more_info_url": "https://osv.dev/vulnerability/PYSEC-2026-2275",
+        "fix_versions": [
+          "2.33.0"
+        ],
+        "aliases": [
+          "CVE-2026-25645",
+          "GHSA-gc5v-m9x4-r6x2"
+        ]
+      },
+      {
+        "source_tool": "pip-audit",
+        "category": "vulnerable_dependency",
+        "rule_id": "PYSEC-2024-60",
+        "rule_name": "idna 2.7",
+        "file": "test_samples/requirements.txt",
+        "line": null,
+        "severity": "UNRATED",
+        "confidence": "HIGH",
+        "raw_description": "A vulnerability was identified in the kjd/idna library, specifically within the `idna.encode()` function, affecting version 3.6. The issue arises from the function's handling of crafted input strings, which can lead to quadratic complexity and consequently, a denial of service condition. This vulnerability is triggered by a crafted input that causes the `idna.encode()` function to process the input with considerable computational load, significantly increasing the processing time in a quadratic manner relative to the input size.",
+        "code_snippet": null,
+        "cwe": null,
+        "more_info_url": "https://osv.dev/vulnerability/PYSEC-2024-60",
+        "fix_versions": [
+          "3.7"
+        ],
+        "aliases": [
+          "CVE-2024-3651",
+          "GHSA-jjg7-2v4v-x38h"
+        ]
+      },
+      {
+        "source_tool": "pip-audit",
+        "category": "vulnerable_dependency",
+        "rule_id": "PYSEC-2026-215",
+        "rule_name": "idna 2.7",
+        "file": "test_samples/requirements.txt",
+        "line": null,
+        "severity": "UNRATED",
+        "confidence": "HIGH",
+        "raw_description": "Internationalized Domain Names in Applications (IDNA) for Python provides support for Internationalized Domain Names in Applications (IDNA) and Unicode IDNA Compatibility Processing. In versions prior to 3.15, payloads such as `\"\\u0660\" * N` or `\"\\u30fb\" * N + \"\\u6f22\"` utilize the `valid_contexto` function prior to length rejection, and for high values of `N` will take a long time to process. This is the same issue as CVE-2024-3651, however the original remediation in 2024 was not a complete fix. A specially crafted argument to the `idna.encode()` function could consume significant resources. This may lead to a denial-of-service. Starting in version 3.14, the function rejects long inputs as soon as practicable prior to any further processing to minimize resource consumption. In version 3.15, this approach was extended to lesser used alternate functions (i.e. per-label conversions and codec support). A workaround is available. Domain names cannot exceed 253 characters in length. If this length limit is enforced prior to passing the domain to the `idna.encode()` function, it should no longer consume significant resources. This is triggered by arbitrarily large inputs that would not occur in normal usage, but may be passed to the library assuming there is no preliminary input validation by the higher-level application.",
+        "code_snippet": null,
+        "cwe": null,
+        "more_info_url": "https://osv.dev/vulnerability/PYSEC-2026-215",
+        "fix_versions": [
+          "3.15"
+        ],
+        "aliases": [
+          "GHSA-65pc-fj4g-8rjx",
+          "CVE-2026-45409"
+        ]
+      },
+      {
+        "source_tool": "pip-audit",
+        "category": "vulnerable_dependency",
+        "rule_id": "PYSEC-2019-133",
+        "rule_name": "urllib3 1.23",
+        "file": "test_samples/requirements.txt",
+        "line": null,
+        "severity": "UNRATED",
+        "confidence": "HIGH",
+        "raw_description": "The urllib3 library before 1.24.2 for Python mishandles certain cases where the desired set of CA certificates is different from the OS store of CA certificates, which results in SSL connections succeeding in situations where a verification failure is the correct outcome. This is related to use of the ssl_context, ca_certs, or ca_certs_dir argument.",
+        "code_snippet": null,
+        "cwe": null,
+        "more_info_url": "https://osv.dev/vulnerability/PYSEC-2019-133",
+        "fix_versions": [
+          "1.24.2"
+        ],
+        "aliases": [
+          "GHSA-mh33-7rrq-662w",
+          "CVE-2019-11324"
+        ]
+      },
+      {
+        "source_tool": "pip-audit",
+        "category": "vulnerable_dependency",
+        "rule_id": "PYSEC-2019-132",
+        "rule_name": "urllib3 1.23",
+        "file": "test_samples/requirements.txt",
+        "line": null,
+        "severity": "UNRATED",
+        "confidence": "HIGH",
+        "raw_description": "In the urllib3 library through 1.24.1 for Python, CRLF injection is possible if the attacker controls the request parameter.",
+        "code_snippet": null,
+        "cwe": null,
+        "more_info_url": "https://osv.dev/vulnerability/PYSEC-2019-132",
+        "fix_versions": [
+          "1.24.3"
+        ],
+        "aliases": [
+          "CVE-2019-11236",
+          "GHSA-r64q-w8jr-g9qp"
+        ]
+      },
+      {
+        "source_tool": "pip-audit",
+        "category": "vulnerable_dependency",
+        "rule_id": "PYSEC-2020-148",
+        "rule_name": "urllib3 1.23",
+        "file": "test_samples/requirements.txt",
+        "line": null,
+        "severity": "UNRATED",
+        "confidence": "HIGH",
+        "raw_description": "urllib3 before 1.25.9 allows CRLF injection if the attacker controls the HTTP request method, as demonstrated by inserting CR and LF control characters in the first argument of putrequest(). NOTE: this is similar to CVE-2020-26116.",
+        "code_snippet": null,
+        "cwe": null,
+        "more_info_url": "https://osv.dev/vulnerability/PYSEC-2020-148",
+        "fix_versions": [
+          "1.25.9"
+        ],
+        "aliases": [
+          "CVE-2020-26137",
+          "GHSA-wqvq-5m8c-6g24"
+        ]
+      },
+      {
+        "source_tool": "pip-audit",
+        "category": "vulnerable_dependency",
+        "rule_id": "PYSEC-2023-192",
+        "rule_name": "urllib3 1.23",
+        "file": "test_samples/requirements.txt",
+        "line": null,
+        "severity": "UNRATED",
+        "confidence": "HIGH",
+        "raw_description": "urllib3 is a user-friendly HTTP client library for Python. urllib3 doesn't treat the `Cookie` HTTP header special or provide any helpers for managing cookies over HTTP, that is the responsibility of the user. However, it is possible for a user to specify a `Cookie` header and unknowingly leak information via HTTP redirects to a different origin if that user doesn't disable redirects explicitly. This issue has been patched in urllib3 version 1.26.17 or 2.0.5.",
+        "code_snippet": null,
+        "cwe": null,
+        "more_info_url": "https://osv.dev/vulnerability/PYSEC-2023-192",
+        "fix_versions": [
+          "1.26.17",
+          "2.0.6"
+        ],
+        "aliases": [
+          "CVE-2023-43804",
+          "GHSA-v845-jxx5-vc9f"
+        ]
+      },
+      {
+        "source_tool": "pip-audit",
+        "category": "vulnerable_dependency",
+        "rule_id": "PYSEC-2023-207",
+        "rule_name": "urllib3 1.23",
+        "file": "test_samples/requirements.txt",
+        "line": null,
+        "severity": "UNRATED",
+        "confidence": "HIGH",
+        "raw_description": "urllib3 before 1.24.2 does not remove the authorization HTTP header when following a cross-origin redirect (i.e., a redirect that differs in host, port, or scheme). This can allow for credentials in the authorization header to be exposed to unintended hosts or transmitted in cleartext. NOTE: this issue exists because of an incomplete fix for CVE-2018-20060 (which was case-sensitive).",
+        "code_snippet": null,
+        "cwe": null,
+        "more_info_url": "https://osv.dev/vulnerability/PYSEC-2023-207",
+        "fix_versions": [
+          "1.24.2"
+        ],
+        "aliases": [
+          "GHSA-gwvm-45gx-3cf8",
+          "CVE-2018-25091"
+        ]
+      },
+      {
+        "source_tool": "pip-audit",
+        "category": "vulnerable_dependency",
+        "rule_id": "PYSEC-2023-212",
+        "rule_name": "urllib3 1.23",
+        "file": "test_samples/requirements.txt",
+        "line": null,
+        "severity": "UNRATED",
+        "confidence": "HIGH",
+        "raw_description": "urllib3 is a user-friendly HTTP client library for Python. urllib3 previously wouldn't remove the HTTP request body when an HTTP redirect response using status 301, 302, or 303 after the request had its method changed from one that could accept a request body (like `POST`) to `GET` as is required by HTTP RFCs. Although this behavior is not specified in the section for redirects, it can be inferred by piecing together information from different sections and we have observed the behavior in other major HTTP client implementations like curl and web browsers. Because the vulnerability requires a previously trusted service to become compromised in order to have an impact on confidentiality we believe the exploitability of this vulnerability is low. Additionally, many users aren't putting sensitive data in HTTP request bodies, if this is the case then this vulnerability isn't exploitable. Both of the following conditions must be true to be affected by this vulnerability: 1. Using urllib3 and submitting sensitive information in the HTTP request body (such as form data or JSON) and 2. The origin service is compromised and starts redirecting using 301, 302, or 303 to a malicious peer or the redirected-to service becomes compromised. This issue has been addressed in versions 1.26.18 and 2.0.7 and users are advised to update to resolve this issue. Users unable to update should disable redirects for services that aren't expecting to respond with redirects with `redirects=False` and disable automatic redirects with `redirects=False` and handle 301, 302, and 303 redirects manually by stripping the HTTP request body. ",
+        "code_snippet": null,
+        "cwe": null,
+        "more_info_url": "https://osv.dev/vulnerability/PYSEC-2023-212",
+        "fix_versions": [
+          "1.26.18",
+          "2.0.7"
+        ],
+        "aliases": [
+          "GHSA-g4mx-q9vg-27p4",
+          "CVE-2023-45803"
+        ]
+      },
+      {
+        "source_tool": "pip-audit",
+        "category": "vulnerable_dependency",
+        "rule_id": "PYSEC-2026-141",
+        "rule_name": "urllib3 1.23",
+        "file": "test_samples/requirements.txt",
+        "line": null,
+        "severity": "UNRATED",
+        "confidence": "HIGH",
+        "raw_description": "urllib3 is an HTTP client library for Python. From 1.23 to before 2.7.0, cross-origin redirects followed from the low-level API via ProxyManager.connection_from_url().urlopen(..., assert_same_host=False) still forward these sensitive headers. This vulnerability is fixed in 2.7.0.",
+        "code_snippet": null,
+        "cwe": null,
+        "more_info_url": "https://osv.dev/vulnerability/PYSEC-2026-141",
+        "fix_versions": [
+          "2.7.0"
+        ],
+        "aliases": [
+          "CVE-2026-44431",
+          "GHSA-qccp-gfcp-xxvc"
+        ]
+      },
+      {
+        "source_tool": "pip-audit",
+        "category": "vulnerable_dependency",
+        "rule_id": "PYSEC-2026-1999",
+        "rule_name": "urllib3 1.23",
+        "file": "test_samples/requirements.txt",
+        "line": null,
+        "severity": "UNRATED",
+        "confidence": "HIGH",
+        "raw_description": "urllib3 handles redirects and retries using the same mechanism, which is controlled by the `Retry` object. The most common way to disable redirects is at the request level, as follows:  ```python resp = urllib3.request(\"GET\", \"https://httpbin.org/redirect/1\", redirect=False) print(resp.status) # 302 ```  However, it is also possible to disable redirects, for all requests, by instantiating a `PoolManager` and specifying `retries` in a way that disable redirects:  ```python import urllib3  http = urllib3.PoolManager(retries=0)  # should raise MaxRetryError on redirect http = urllib3.PoolManager(retries=urllib3.Retry(redirect=0))  # equivalent to the above http = urllib3.PoolManager(retries=False)  # should return the first response  resp = http.request(\"GET\", \"https://httpbin.org/redirect/1\") ```  However, the `retries` parameter is currently ignored, which means all the above examples don't disable redirects.  ## Affected usages  Passing `retries` on `PoolManager` instantiation to disable redirects or restrict their number.  By default, requests and botocore users are not affected.  ## Impact  Redirects are often used to exploit SSRF vulnerabilities. An application attempting to mitigate SSRF or open redirect vulnerabilities by disabling redirects at the PoolManager level will remain vulnerable.  ## Remediation  You can remediate this vulnerability with the following steps:   * Upgrade to a patched version of urllib3. If your organization would benefit from the continued support of urllib3 1.x, please contact [sethmichaellarson@gmail.com](mailto:sethmichaellarson@gmail.com) to discuss sponsorship or contribution opportunities.  * Disable redirects at the `request()` level instead of the `PoolManager()` level.",
+        "code_snippet": null,
+        "cwe": null,
+        "more_info_url": "https://osv.dev/vulnerability/PYSEC-2026-1999",
+        "fix_versions": [
+          "2.5.0"
+        ],
+        "aliases": [
+          "CVE-2025-50181",
+          "GHSA-pq67-6m6q-mj2v"
+        ]
+      },
+      {
+        "source_tool": "pip-audit",
+        "category": "vulnerable_dependency",
+        "rule_id": "PYSEC-2026-1995",
+        "rule_name": "urllib3 1.23",
+        "file": "test_samples/requirements.txt",
+        "line": null,
+        "severity": "UNRATED",
+        "confidence": "HIGH",
+        "raw_description": "When using urllib3's proxy support with `ProxyManager`, the `Proxy-Authorization` header is only sent to the configured proxy, as expected.  However, when sending HTTP requests *without* using urllib3's proxy support, it's possible to accidentally configure the `Proxy-Authorization` header even though it won't have any effect as the request is not using a forwarding proxy or a tunneling proxy. In those cases, urllib3 doesn't treat the `Proxy-Authorization` HTTP header as one carrying authentication material and thus doesn't strip the header on cross-origin redirects.  Because this is a highly unlikely scenario, we believe the severity of this vulnerability is low for almost all users. Out of an abundance of caution urllib3 will automatically strip the `Proxy-Authorization` header during cross-origin redirects to avoid the small chance that users are doing this on accident.  Users should use urllib3's proxy support or disable automatic redirects to achieve safe processing of the `Proxy-Authorization` header, but we still decided to strip the header by default in order to further protect users who aren't using the correct approach.  ## Affected usages  We believe the number of usages affected by this advisory is low. It requires all of the following to be true to be exploited:  * Setting the `Proxy-Authorization` header without using urllib3's built-in proxy support. * Not disabling HTTP redirects. * Either not using an HTTPS origin server or for the proxy or target origin to redirect to a malicious origin.  ## Remediation  * Using the `Proxy-Authorization` header with urllib3's `ProxyManager`. * Disabling HTTP redirects using `redirects=False` when sending requests. * Not using the `Proxy-Authorization` header.",
+        "code_snippet": null,
+        "cwe": null,
+        "more_info_url": "https://osv.dev/vulnerability/PYSEC-2026-1995",
+        "fix_versions": [
+          "1.26.19",
+          "2.2.2"
+        ],
+        "aliases": [
+          "CVE-2024-37891",
+          "GHSA-34jh-p97f-mpxf"
+        ]
+      },
+      {
+        "source_tool": "pip-audit",
+        "category": "vulnerable_dependency",
+        "rule_id": "PYSEC-2026-1994",
+        "rule_name": "urllib3 1.23",
+        "file": "test_samples/requirements.txt",
+        "line": null,
+        "severity": "UNRATED",
+        "confidence": "HIGH",
+        "raw_description": "### Impact  urllib3's [streaming API](https://urllib3.readthedocs.io/en/2.5.0/advanced-usage.html#streaming-and-i-o) is designed for the efficient handling of large HTTP responses by reading the content in chunks, rather than loading the entire response body into memory at once.  When streaming a compressed response, urllib3 can perform decoding or decompression based on the HTTP `Content-Encoding` header (e.g., `gzip`, `deflate`, `br`, or `zstd`). The library must read compressed data from the network and decompress it until the requested chunk size is met. Any resulting decompressed data that exceeds the requested amount is held in an internal buffer for the next read operation.  The decompression logic could cause urllib3 to fully decode a small amount of highly compressed data in a single operation. This can result in excessive resource consumption (high CPU usage and massive memory allocation for the decompressed data; CWE-409) on the client side, even if the application only requested a small chunk of data.   ### Affected usages  Applications and libraries using urllib3 version 2.5.0 and earlier to stream large compressed responses or content from untrusted sources.  `stream()`, `read(amt=256)`, `read1(amt=256)`, `read_chunked(amt=256)`, `readinto(b)` are examples of `urllib3.HTTPResponse` method calls using the affected logic unless decoding is disabled explicitly.   ### Remediation  Upgrade to at least urllib3 v2.6.0 in which the library avoids decompressing data that exceeds the requested amount.  If your environment contains a package facilitating the Brotli encoding, upgrade to at least Brotli 1.2.0 or brotlicffi 1.2.0.0 too. These versions are enforced by the `urllib3[brotli]` extra in the patched versions of urllib3.   ### Credits  The issue was reported by @Cycloctane. Supplemental information was provided by @stamparm during a security audit performed by [7ASecurity](https://7asecurity.com/) and facilitated by [OSTIF](https://ostif.org/).",
+        "code_snippet": null,
+        "cwe": null,
+        "more_info_url": "https://osv.dev/vulnerability/PYSEC-2026-1994",
+        "fix_versions": [
+          "2.6.0"
+        ],
+        "aliases": [
+          "CVE-2025-66471",
+          "GHSA-2xpw-w6gg-jr37"
+        ]
+      },
+      {
+        "source_tool": "pip-audit",
+        "category": "vulnerable_dependency",
+        "rule_id": "PYSEC-2026-1996",
+        "rule_name": "urllib3 1.23",
+        "file": "test_samples/requirements.txt",
+        "line": null,
+        "severity": "UNRATED",
+        "confidence": "HIGH",
+        "raw_description": "### Impact  urllib3's [streaming API](https://urllib3.readthedocs.io/en/2.6.2/advanced-usage.html#streaming-and-i-o) is designed for the efficient handling of large HTTP responses by reading the content in chunks, rather than loading the entire response body into memory at once.  urllib3 can perform decoding or decompression based on the HTTP `Content-Encoding` header (e.g., `gzip`, `deflate`, `br`, or `zstd`). When using the streaming API, the library decompresses only the necessary bytes, enabling partial content consumption.  However, for HTTP redirect responses, the library would read the entire response body to drain the connection and decompress the content unnecessarily. This decompression occurred even before any read methods were called, and configured read limits did not restrict the amount of decompressed data. As a result, there was no safeguard against decompression bombs. A malicious server could exploit this to trigger excessive resource consumption on the client (high CPU usage and large memory allocations for decompressed data; CWE-409).  ### Affected usages  Applications and libraries using urllib3 version 2.6.2 and earlier to stream content from untrusted sources by setting `preload_content=False` when they do not disable redirects.   ### Remediation  Upgrade to at least urllib3 v2.6.3 in which the library does not decode content of redirect responses when `preload_content=False`.  If upgrading is not immediately possible, disable [redirects](https://urllib3.readthedocs.io/en/2.6.2/user-guide.html#retrying-requests) by setting `redirect=False` for requests to untrusted source.",
+        "code_snippet": null,
+        "cwe": null,
+        "more_info_url": "https://osv.dev/vulnerability/PYSEC-2026-1996",
+        "fix_versions": [
+          "2.6.3"
+        ],
+        "aliases": [
+          "GHSA-38jv-5279-wg99",
+          "CVE-2026-21441"
+        ]
+      },
+      {
+        "source_tool": "pip-audit",
+        "category": "vulnerable_dependency",
+        "rule_id": "PYSEC-2026-2132",
+        "rule_name": "click 8.1.8",
+        "file": "test_samples/requirements.txt",
+        "line": null,
+        "severity": "UNRATED",
+        "confidence": "HIGH",
+        "raw_description": "Pallets Click, versions 8.3.2 and below, contain a command injection vulnerability in the click.edit() function, allowing attackers to pass arbitrary OS commands from an unprivileged account.",
+        "code_snippet": null,
+        "cwe": null,
+        "more_info_url": "https://osv.dev/vulnerability/PYSEC-2026-2132",
+        "fix_versions": [
+          "8.3.3"
+        ],
+        "aliases": [
+          "GHSA-47fr-3ffg-hgmw",
+          "CVE-2026-7246"
+        ]
+      }
+    ]
+  }
+}

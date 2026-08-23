@@ -1,0 +1,63 @@
+name: Security scan
+
+# Deliberately using "pull_request", not "pull_request_target".
+# pull_request_target runs in the context of the base branch with a
+# privileged token, which is what enables GitHub Actions cache
+# poisoning attacks from forked PRs. Plain "pull_request" runs in the
+# PR's own isolated context - no access to the default branch's cache
+# or secrets, so there's nothing valuable for an attacker to poison.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Least privilege: this workflow only needs to read the repo.
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip" # caches pip's own download cache, separate from our scan cache below
+
+      - name: Restore scan cache
+        uses: actions/cache@v4
+        with:
+          path: .audit_cache.json
+          # A static-ish key (not tied to file hashes) so the cache
+          # persists across commits - our own scanner/cache.py already
+          # does the per-file content hashing and invalidation
+          # internally. hashFiles here would defeat the purpose by
+          # creating a brand new cache entry on every commit.
+          key: audit-cache-${{ runner.os }}
+          restore-keys: |
+            audit-cache-
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run security scan
+        id: scan
+        run: |
+          python3 -m scanner.aggregator . requirements.txt > scan_result.json
+          echo "high_count=$(python3 -c "import json; print(json.load(open('scan_result.json'))['severity_counts']['HIGH'])")" >> "$GITHUB_OUTPUT"
+
+      - name: Upload scan result
+        uses: actions/upload-artifact@v4
+        with:
+          name: scan-result
+          path: scan_result.json
+
+      - name: Fail on HIGH severity findings
+        if: steps.scan.outputs.high_count != '0'
+        run: |
+          echo "Found ${{ steps.scan.outputs.high_count }} HIGH severity finding(s). See the scan-result artifact for details."
+          exit 1
