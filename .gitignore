@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+venv/
+.venv/
+*.egg-info/
+.pytest_cache/
+
+# never commit real secrets or API keys
+.env
+!test_samples/.env
