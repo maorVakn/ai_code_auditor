@@ -25,15 +25,20 @@ Two performance techniques are used together:
 from __future__ import annotations
 
 import hashlib
+import argparse
+import json
 import os
 import sys
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
+from scanner.ai_report import build_audit_report
 from scanner.bandit_scan import run_bandit
 from scanner.secrets_scan import run_secrets_scan
 from scanner.deps_scan import run_deps_scan
+from scanner.html_report import write_html_report
 from scanner import cache as cache_module
+from scanner.redaction import redact_cache, redact_findings
 
 # directories we never want to walk into when collecting files to scan
 IGNORED_DIRS = {".git", "venv", ".venv", "__pycache__", "node_modules"}
@@ -108,7 +113,7 @@ def run_full_scan(
         if os.path.isfile(guess):
             requirements_path = guess
 
-    cache = cache_module.load_cache(cache_path) if use_cache else {"files": {}, "dependencies": {}}
+    cache = redact_cache(cache_module.load_cache(cache_path)) if use_cache else {"files": {}, "dependencies": {}}
 
     all_files = _collect_files(code_path)
     changed_files, cached_findings = _partition_by_cache(cache, all_files)
@@ -160,6 +165,9 @@ def run_full_scan(
 
     # update the cache with fresh results, grouped back by file
     if use_cache:
+        fresh_bandit_findings = redact_findings(fresh_bandit_findings)
+        fresh_secrets_findings = redact_findings(fresh_secrets_findings)
+        fresh_deps_findings = redact_findings(fresh_deps_findings)
         _update_file_cache(cache, changed_files, fresh_bandit_findings, fresh_secrets_findings)
         if deps_hash and cached_deps_findings is None:
             cache_module.set_cached_dependency_findings(cache, deps_hash, fresh_deps_findings)
@@ -170,6 +178,7 @@ def run_full_scan(
         + cached_findings["secrets"] + fresh_secrets_findings
         + fresh_deps_findings
     )
+    findings = redact_findings(findings)
 
     for finding in findings:
         finding["finding_id"] = _make_finding_id(finding)
@@ -227,12 +236,37 @@ def _timed(func):
     return wrapper
 
 
-if __name__ == "__main__":
-    import sys
-    import json
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Run security scanners and emit JSON/HTML reports.")
+    parser.add_argument("code_path", nargs="?", default=".")
+    parser.add_argument("requirements_path", nargs="?")
+    parser.add_argument("--report-json", help="Write AI-ready generic report JSON to this path.")
+    parser.add_argument("--html", help="Write static HTML report to this path.")
+    parser.add_argument("--no-ai", action="store_true", help="Disable optional Gemini enrichment.")
+    parser.add_argument("--no-cache", action="store_true", help="Run scanners without reading or writing .audit_cache.json.")
+    parser.add_argument("--cache-path", default=cache_module.DEFAULT_CACHE_PATH)
+    args = parser.parse_args()
 
-    code_path = sys.argv[1] if len(sys.argv) > 1 else "."
-    req_path = sys.argv[2] if len(sys.argv) > 2 else None
+    result = run_full_scan(
+        args.code_path,
+        args.requirements_path,
+        use_cache=not args.no_cache,
+        cache_path=args.cache_path,
+    )
 
-    result = run_full_scan(code_path, req_path)
+    if args.report_json or args.html:
+        report = build_audit_report(result, use_ai=not args.no_ai)
+        for index, finding in enumerate(report.get("findings", [])):
+            finding["_index"] = index
+        if args.report_json:
+            with open(args.report_json, "w", encoding="utf-8") as f:
+                json.dump(report, f, indent=2, ensure_ascii=False)
+        if args.html:
+            write_html_report(report, args.html)
+
     print(json.dumps(result, indent=2, ensure_ascii=False))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

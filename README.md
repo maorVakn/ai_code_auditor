@@ -1,11 +1,10 @@
 # AI Code Security Auditor
 
-A Python tool that scans a code repository for security issues, then uses
-Claude to explain each finding, rate its severity, and suggest a fix.
+A Python tool that scans a code repository for security issues, builds an
+AI-ready JSON report, and publishes a static HTML report for GitHub Actions.
 
-Currently implemented: **Stage 1 - static scanning**. Three tools run
-concurrently (separate threads) and their output is merged into one
-unified finding format:
+Three tools run concurrently (separate threads) and their output is merged
+into one unified finding format:
 
 - `bandit` - scans Python code (AST-based) for issues like SQL injection,
   command injection, weak crypto, unsafe YAML loading, etc.
@@ -51,6 +50,35 @@ stays clean JSON):
 python3 -m scanner.aggregator test_samples test_samples/requirements.txt > result.json
 ```
 
+To also generate the user-facing reports:
+
+```bash
+mkdir -p audit-report
+python3 -m scanner.aggregator test_samples test_samples/requirements.txt \
+  --report-json audit-report/audit_report.json \
+  --html audit-report/index.html \
+  > audit-report/raw_scan_result.json
+```
+
+Open `audit-report/index.html` to browse findings, filter by severity/text,
+and copy a safe prompt for another AI assistant.
+
+## Optional Gemini enrichment
+
+The report generator works without an API key. If `GEMINI_API_KEY` is set,
+the scanner asks Gemini to improve titles, summaries, risk explanations, and
+fix guidance while preserving the same generic JSON schema. Only redacted
+finding data is sent.
+
+```bash
+export GEMINI_API_KEY="..."
+python3 -m scanner.aggregator . requirements.txt \
+  --report-json audit-report/audit_report.json \
+  --html audit-report/index.html
+```
+
+Use `--no-ai` to force deterministic local-only reports.
+
 ## Project structure
 
 ```
@@ -69,6 +97,17 @@ ai-code-auditor/
 └── README.md
 ```
 
+## GitHub Actions
+
+The included `.github/workflows/security-scan.yml` runs on `push` to `master`
+and on every pull request. It restores `.audit_cache.json`, runs the scan,
+uploads `security-audit-report`, and then fails the job if any `HIGH`
+severity findings exist.
+
+To enable Gemini in CI, add a repository secret named `GEMINI_API_KEY`.
+Forked pull requests will still get the deterministic report when that secret
+is unavailable.
+
 ## Design notes
 
 - **Unified finding format**: every finding from every tool shares the
@@ -80,10 +119,9 @@ ai-code-auditor/
   spends most of its time waiting on a subprocess (I/O-bound), not
   doing CPU-bound work in Python itself - so the GIL isn't a
   bottleneck.
-- **Secrets are never stored in the output**: `secrets_scan.py`
-  intentionally sets `code_snippet: null` for exposed secrets, so the
-  actual credential value is never written to disk or later sent to
-  an external API.
+- **Secrets are redacted before reports/cache**: scanner output is passed
+  through `scanner/redaction.py` so accidental values echoed by tools are
+  masked before being written to JSON, HTML, cache, or sent to Gemini.
 - **`--all-files` for detect-secrets**: without this flag, dotfiles
   like `.env` are silently skipped. Worth remembering if you add more
   scanners later.

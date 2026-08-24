@@ -46,15 +46,22 @@ jobs:
 
       - name: Run security scan
         id: scan
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
-          python3 -m scanner.aggregator . requirements.txt > scan_result.json
-          echo "high_count=$(python3 -c "import json; print(json.load(open('scan_result.json'))['severity_counts']['HIGH'])")" >> "$GITHUB_OUTPUT"
+          mkdir -p audit-report
+          python3 -m scanner.aggregator . requirements.txt \
+            --report-json audit-report/audit_report.json \
+            --html audit-report/index.html \
+            > audit-report/raw_scan_result.json
+          echo "high_count=$(python3 -c "import json; print(json.load(open('audit-report/raw_scan_result.json'))['severity_counts']['HIGH'])")" >> "$GITHUB_OUTPUT"
 
-      - name: Upload scan result
+      - name: Upload audit report
         uses: actions/upload-artifact@v4
+        if: always()
         with:
-          name: scan-result
-          path: scan_result.json
+          name: security-audit-report
+          path: audit-report/
 
       - name: Fail on HIGH severity findings
         if: steps.scan.outputs.high_count != '0'

@@ -31,8 +31,8 @@
           "line": 15,
           "severity": "LOW",
           "confidence": "MEDIUM",
-          "raw_description": "Possible hardcoded password: 'Sup3rS3cretP@ss2026!'",
-          "code_snippet": "14 AWS_ACCESS_KEY = \"AKIAIOSFODNN7EXAMPLE\"\n15 DATABASE_PASSWORD = \"Sup3rS3cretP@ss2026!\"\n16 \n",
+          "raw_description": "Possible hardcoded password: '[REDACTED_SECRET]'",
+          "code_snippet": "14 AWS_ACCESS_KEY = \"[REDACTED_SECRET]\"\n15 DATABASE_PASSWORD = \"[REDACTED_SECRET]\"\n16 \n",
           "cwe": 259,
           "more_info_url": "https://bandit.readthedocs.io/en/1.8.6/plugins/b105_hardcoded_password_string.html"
         },
