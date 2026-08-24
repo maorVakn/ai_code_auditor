@@ -57,11 +57,25 @@ jobs:
           echo "high_count=$(python3 -c "import json; print(json.load(open('audit-report/raw_scan_result.json'))['severity_counts']['HIGH'])")" >> "$GITHUB_OUTPUT"
 
       - name: Upload audit report
+        id: upload-report
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: security-audit-report
           path: audit-report/
+
+      - name: Publish report link
+        if: always()
+        run: |
+          {
+            echo "## Security audit report"
+            echo ""
+            echo "[Download the HTML report artifact](${{ steps.upload-report.outputs.artifact-url }})"
+            echo ""
+            echo "Open \`index.html\` from the downloaded artifact."
+            echo ""
+            echo "Access is controlled by GitHub permissions for this repository."
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Fail on HIGH severity findings
         if: steps.scan.outputs.high_count != '0'
