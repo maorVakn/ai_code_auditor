@@ -97,7 +97,7 @@ def _try_gemini(report: dict, api_key: str) -> tuple[dict | None, str | None]:
         method="POST",
     )
     try:
-        with urllib.request.urlopen(request, timeout=30) as response:
+        with urllib.request.urlopen(request, timeout=120) as response:
             data = json.loads(response.read().decode("utf-8"))
         text = data["candidates"][0]["content"]["parts"][0]["text"]
         enriched = json.loads(text)
