@@ -53,8 +53,10 @@ jobs:
           python3 -m scanner.aggregator . requirements.txt \
             --report-json audit-report/audit_report.json \
             --html audit-report/index.html \
+            --markdown audit-report/summary.md \
             > audit-report/raw_scan_result.json
           echo "high_count=$(python3 -c "import json; print(json.load(open('audit-report/raw_scan_result.json'))['severity_counts']['HIGH'])")" >> "$GITHUB_OUTPUT"
+          cat audit-report/summary.md >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload audit report
         id: upload-report
@@ -70,9 +72,11 @@ jobs:
           {
             echo "## Security audit report"
             echo ""
+            echo "The findings are shown above in this workflow summary."
+            echo ""
             echo "[Download the HTML report artifact](${{ steps.upload-report.outputs.artifact-url }})"
             echo ""
-            echo "Open \`index.html\` from the downloaded artifact."
+            echo "Download the zip and open \`index.html\` for the full interactive report."
             echo ""
             echo "Access is controlled by GitHub permissions for this repository."
           } >> "$GITHUB_STEP_SUMMARY"
@@ -80,5 +84,5 @@ jobs:
       - name: Fail on HIGH severity findings
         if: steps.scan.outputs.high_count != '0'
         run: |
-          echo "Found ${{ steps.scan.outputs.high_count }} HIGH severity finding(s). See the scan-result artifact for details."
+          echo "Found ${{ steps.scan.outputs.high_count }} HIGH severity finding(s). See the workflow summary and security-audit-report artifact for details."
           exit 1

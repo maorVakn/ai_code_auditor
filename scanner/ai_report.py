@@ -13,7 +13,7 @@ import urllib.error
 import urllib.request
 
 
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.7-flash")
 
 
 def build_audit_report(scan_result: dict, use_ai: bool = True) -> dict:
@@ -23,10 +23,10 @@ def build_audit_report(scan_result: dict, use_ai: bool = True) -> dict:
         report["ai_enriched"] = False
         return report
 
-    enriched = _try_gemini(report, api_key)
+    enriched, error = _try_gemini(report, api_key)
     if enriched is None:
         report["ai_enriched"] = False
-        report["ai_error"] = "Gemini enrichment failed; deterministic report was used."
+        report["ai_error"] = f"Gemini enrichment failed; deterministic report was used. {error}"
         return report
 
     enriched["ai_enriched"] = True
@@ -76,7 +76,7 @@ def _fallback_report(scan_result: dict) -> dict:
     }
 
 
-def _try_gemini(report: dict, api_key: str) -> dict | None:
+def _try_gemini(report: dict, api_key: str) -> tuple[dict | None, str | None]:
     prompt = (
         "Return only valid JSON matching the input schema. Improve title, summary, risk, "
         "recommended_fix, and safe_for_ai_copy for each security finding. Do not add secrets, "
@@ -85,7 +85,7 @@ def _try_gemini(report: dict, api_key: str) -> dict | None:
     )
     payload = {
         "contents": [{"parts": [{"text": prompt}]}],
-        "generationConfig": {"temperature": 0.2, "response_mime_type": "application/json"},
+        "generationConfig": {"response_mime_type": "application/json"},
     }
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={api_key}"
     request = urllib.request.Request(
@@ -99,12 +99,15 @@ def _try_gemini(report: dict, api_key: str) -> dict | None:
             data = json.loads(response.read().decode("utf-8"))
         text = data["candidates"][0]["content"]["parts"][0]["text"]
         enriched = json.loads(text)
-    except (KeyError, json.JSONDecodeError, urllib.error.URLError, TimeoutError):
-        return None
+    except urllib.error.HTTPError as exc:
+        body = exc.read().decode("utf-8", errors="replace")[:500]
+        return None, f"HTTP {exc.code}: {body}"
+    except (KeyError, json.JSONDecodeError, urllib.error.URLError, TimeoutError) as exc:
+        return None, str(exc)
 
     if not isinstance(enriched, dict) or "summary" not in enriched or "findings" not in enriched:
-        return None
-    return enriched
+        return None, "Gemini returned JSON that did not match the expected report schema."
+    return enriched, None
 
 
 def _title_for(finding: dict) -> str:

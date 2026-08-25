@@ -37,6 +37,7 @@ from scanner.bandit_scan import run_bandit
 from scanner.secrets_scan import run_secrets_scan
 from scanner.deps_scan import run_deps_scan
 from scanner.html_report import write_html_report
+from scanner.markdown_report import write_markdown_report
 from scanner import cache as cache_module
 from scanner.redaction import redact_cache, redact_findings
 
@@ -242,6 +243,7 @@ def main() -> int:
     parser.add_argument("requirements_path", nargs="?")
     parser.add_argument("--report-json", help="Write AI-ready generic report JSON to this path.")
     parser.add_argument("--html", help="Write static HTML report to this path.")
+    parser.add_argument("--markdown", help="Write GitHub Actions summary markdown to this path.")
     parser.add_argument("--no-ai", action="store_true", help="Disable optional Gemini enrichment.")
     parser.add_argument("--no-cache", action="store_true", help="Run scanners without reading or writing .audit_cache.json.")
     parser.add_argument("--cache-path", default=cache_module.DEFAULT_CACHE_PATH)
@@ -254,7 +256,7 @@ def main() -> int:
         cache_path=args.cache_path,
     )
 
-    if args.report_json or args.html:
+    if args.report_json or args.html or args.markdown:
         report = build_audit_report(result, use_ai=not args.no_ai)
         for index, finding in enumerate(report.get("findings", [])):
             finding["_index"] = index
@@ -263,6 +265,8 @@ def main() -> int:
                 json.dump(report, f, indent=2, ensure_ascii=False)
         if args.html:
             write_html_report(report, args.html)
+        if args.markdown:
+            write_markdown_report(report, args.markdown)
 
     print(json.dumps(result, indent=2, ensure_ascii=False))
     return 0

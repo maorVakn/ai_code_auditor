@@ -57,11 +57,14 @@ mkdir -p audit-report
 python3 -m scanner.aggregator test_samples test_samples/requirements.txt \
   --report-json audit-report/audit_report.json \
   --html audit-report/index.html \
+  --markdown audit-report/summary.md \
   > audit-report/raw_scan_result.json
 ```
 
 Open `audit-report/index.html` to browse findings, filter by severity/text,
 and copy a safe prompt for another AI assistant.
+In GitHub Actions, `summary.md` is also appended to the workflow summary so
+the main findings are visible without downloading the artifact.
 
 ## Optional Gemini enrichment
 
@@ -78,6 +81,8 @@ python3 -m scanner.aggregator . requirements.txt \
 ```
 
 Use `--no-ai` to force deterministic local-only reports.
+The workflow summary shows whether Gemini enrichment completed or whether the
+local fallback was used. If Gemini fails, the API error is shown there.
 
 ## Project structure
 
@@ -88,7 +93,11 @@ ai-code-auditor/
 │   ├── bandit_scan.py      # bandit wrapper
 │   ├── secrets_scan.py     # detect-secrets wrapper
 │   ├── deps_scan.py        # pip-audit wrapper
-│   └── aggregator.py       # runs all three concurrently, merges results
+│   ├── aggregator.py       # runs all three concurrently, merges results
+│   ├── ai_report.py        # optional Gemini enrichment + generic report schema
+│   ├── html_report.py      # interactive artifact report
+│   ├── markdown_report.py  # GitHub Actions summary report
+│   └── redaction.py        # masks secrets before reports/cache/AI
 ├── test_samples/
 │   ├── vulnerable_app.py   # intentionally vulnerable sample code
 │   ├── requirements.txt    # intentionally outdated dependencies
