@@ -11,9 +11,11 @@ import json
 import os
 import urllib.error
 import urllib.request
+from xmlrpc import client
 
 
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")  # fallback to a known stable model if not set
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")  # fallback to a known stable model if not set
+
 
 
 def build_audit_report(scan_result: dict, use_ai: bool = True) -> dict:
