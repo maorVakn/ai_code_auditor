@@ -225,7 +225,7 @@ def _update_file_cache(
             secrets_by_file.get(file_path, []),
         )
 
-
+ 
 def _timed(func):
     """Wraps a function so it also returns how long it took - useful
     for measurement/debugging."""
