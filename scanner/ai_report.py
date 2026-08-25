@@ -29,9 +29,11 @@ GEMINI_MODELS = [m.strip() for m in os.getenv("GEMINI_MODEL", _DEFAULT_MODELS).s
 
 GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
 
-# How many findings to send to the model per request. Smaller = faster per
-# call and less likely to hit timeouts, but more total calls.
-CHUNK_SIZE = int(os.getenv("GEMINI_CHUNK_SIZE", "6"))
+# How many findings to send to the model per request. Bigger chunks mean
+# fewer total API calls (easier on RPM quotas) at the cost of a slightly
+# bigger/slower individual request. 12 is a reasonable middle ground for
+# free-tier RPM limits; drop it back down if you hit response-size issues.
+CHUNK_SIZE = int(os.getenv("GEMINI_CHUNK_SIZE", "12"))
 
 # Per-request timeout. Because each request now only carries a handful of
 # findings instead of the entire report, this no longer needs to be huge.
@@ -40,6 +42,11 @@ REQUEST_TIMEOUT_SECONDS = int(os.getenv("GEMINI_TIMEOUT_SECONDS", "45"))
 # Retry behaviour for transient failures (mainly 503s / connection errors).
 MAX_RETRIES_PER_MODEL = 2
 RETRY_BACKOFF_BASE_SECONDS = 2  # 2s, then 4s, ...
+
+# Pause between successive chunk requests so we don't burst through the
+# free-tier requests-per-minute quota when a report has many findings.
+# Set to 0 to disable (e.g. if you're on a paid tier with high RPM limits).
+INTER_CHUNK_DELAY_SECONDS = float(os.getenv("GEMINI_INTER_CHUNK_DELAY_SECONDS", "4"))
 
 
 def build_audit_report(scan_result: dict, use_ai: bool = True) -> dict:
@@ -66,6 +73,10 @@ def build_audit_report(scan_result: dict, use_ai: bool = True) -> dict:
         else:
             any_chunk_succeeded = True
             enriched_findings.extend(enriched_chunk)
+
+        is_last_chunk = chunk_index == len(chunks) - 1
+        if not is_last_chunk and INTER_CHUNK_DELAY_SECONDS > 0:
+            time.sleep(INTER_CHUNK_DELAY_SECONDS)
 
     report["findings"] = enriched_findings
     report["ai_enriched"] = any_chunk_succeeded
@@ -153,7 +164,9 @@ def _try_gemini_chunk(findings_chunk: list[dict]) -> tuple[list[dict] | None, st
             except _RetryableError as exc:
                 last_error = f"{model}: {exc}"
                 if attempt < MAX_RETRIES_PER_MODEL:
-                    time.sleep(RETRY_BACKOFF_BASE_SECONDS * (2 ** (attempt - 1)))
+                    is_rate_limit = "HTTP 429" in str(exc)
+                    delay = 20 if is_rate_limit else RETRY_BACKOFF_BASE_SECONDS * (2 ** (attempt - 1))
+                    time.sleep(delay)
                     continue
                 # exhausted retries for this model, fall through to next model
             except _FatalModelError as exc:
