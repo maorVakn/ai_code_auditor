@@ -13,7 +13,7 @@ import urllib.error
 import urllib.request
 
 
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.7-flash")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-1.5-flash")  # fallback to a known stable model if not set
 
 
 def build_audit_report(scan_result: dict, use_ai: bool = True) -> dict:
