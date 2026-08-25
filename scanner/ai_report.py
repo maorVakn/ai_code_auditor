@@ -4,18 +4,42 @@ Builds the final generic audit JSON.
 Gemini is optional: in CI without GEMINI_API_KEY we still emit a useful,
 stable schema. When a key is present, the model may improve summaries and
 fix guidance, but it only receives already-redacted finding data.
+
+AI enrichment is done in small per-finding chunks (not the whole report at
+once) so that:
+  - payloads stay small -> faster generation -> no more read timeouts
+  - a single bad/oversized finding can't sink the whole report
+  - if a model name is retired or overloaded, we fail over to the next
+    model / retry instead of giving up immediately
 """
 from __future__ import annotations
 
 import json
 import os
+import time
 import urllib.error
 import urllib.request
-from xmlrpc import client
 
+# Ordered list of models to try, most-preferred first. Override with
+# GEMINI_MODEL="model-a,model-b,model-c" (comma separated) if you need to
+# pin something specific. Keep this list updated as Google retires models -
+# check https://ai.google.dev/gemini-api/docs/changelog periodically.
+_DEFAULT_MODELS = "gemini-2.5-flash,gemini-2.5-flash-lite,gemini-3.1-flash-lite"
+GEMINI_MODELS = [m.strip() for m in os.getenv("GEMINI_MODEL", _DEFAULT_MODELS).split(",") if m.strip()]
 
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")  # fallback to a known stable model if not set
+GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta/models"
 
+# How many findings to send to the model per request. Smaller = faster per
+# call and less likely to hit timeouts, but more total calls.
+CHUNK_SIZE = int(os.getenv("GEMINI_CHUNK_SIZE", "6"))
+
+# Per-request timeout. Because each request now only carries a handful of
+# findings instead of the entire report, this no longer needs to be huge.
+REQUEST_TIMEOUT_SECONDS = int(os.getenv("GEMINI_TIMEOUT_SECONDS", "45"))
+
+# Retry behaviour for transient failures (mainly 503s / connection errors).
+MAX_RETRIES_PER_MODEL = 2
+RETRY_BACKOFF_BASE_SECONDS = 2  # 2s, then 4s, ...
 
 
 def build_audit_report(scan_result: dict, use_ai: bool = True) -> dict:
@@ -25,14 +49,32 @@ def build_audit_report(scan_result: dict, use_ai: bool = True) -> dict:
         report["ai_enriched"] = False
         return report
 
-    enriched, error = _try_gemini(report, api_key)
-    if enriched is None:
-        report["ai_enriched"] = False
-        report["ai_error"] = f"Gemini enrichment failed; deterministic report was used. {error}"
-        return report
+    findings = report["findings"]
+    chunks = [findings[i:i + CHUNK_SIZE] for i in range(0, len(findings), CHUNK_SIZE)]
 
-    enriched["ai_enriched"] = True
-    return enriched
+    enriched_findings: list[dict] = []
+    chunk_errors: list[str] = []
+    any_chunk_succeeded = False
+
+    for chunk_index, chunk in enumerate(chunks):
+        enriched_chunk, error = _try_gemini_chunk(chunk)
+        if enriched_chunk is None:
+            # Fall back to the deterministic findings for just this chunk,
+            # rather than failing the entire report.
+            chunk_errors.append(f"chunk {chunk_index}: {error}")
+            enriched_findings.extend(chunk)
+        else:
+            any_chunk_succeeded = True
+            enriched_findings.extend(enriched_chunk)
+
+    report["findings"] = enriched_findings
+    report["ai_enriched"] = any_chunk_succeeded
+    if chunk_errors:
+        report["ai_error"] = (
+            f"Gemini enrichment partially failed ({len(chunk_errors)}/{len(chunks)} chunks); "
+            f"deterministic values were used for those findings. Details: {'; '.join(chunk_errors)}"
+        )
+    return report
 
 
 def _fallback_report(scan_result: dict) -> dict:
@@ -78,38 +120,83 @@ def _fallback_report(scan_result: dict) -> dict:
     }
 
 
-def _try_gemini(report: dict, api_key: str) -> tuple[dict | None, str | None]:
+def _try_gemini_chunk(findings_chunk: list[dict]) -> tuple[list[dict] | None, str | None]:
+    """Send a small batch of findings to Gemini and return the enriched batch.
+
+    Tries each configured model in order; within each model, retries a
+    couple of times on transient errors (503s, timeouts, connection resets)
+    with exponential backoff before moving on to the next model.
+    """
     prompt = (
-        "Return only valid JSON matching the input schema. Improve title, summary, risk, "
-        "recommended_fix, and safe_for_ai_copy for each security finding. Do not add secrets, "
-        "do not ask for access to private code, and keep locations/rule ids unchanged.\n\n"
-        + json.dumps(report, ensure_ascii=False)
+        "Return only a valid JSON array (no prose, no markdown fences) with exactly "
+        f"{len(findings_chunk)} objects, matching the input schema. Improve title, "
+        "summary, risk, recommended_fix, and safe_for_ai_copy for each security finding. "
+        "Do not add secrets, do not ask for access to private code, and keep id/severity/"
+        "category/tool/rule_id/rule_name/location/metadata fields unchanged.\n\n"
+        + json.dumps(findings_chunk, ensure_ascii=False)
     )
     payload = {
         "contents": [{"parts": [{"text": prompt}]}],
         "generationConfig": {"response_mime_type": "application/json"},
     }
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent?key={api_key}"
+    body = json.dumps(payload).encode("utf-8")
+
+    last_error = "unknown error"
+    for model in GEMINI_MODELS:
+        for attempt in range(1, MAX_RETRIES_PER_MODEL + 1):
+            try:
+                enriched = _call_gemini(model, body)
+                if not isinstance(enriched, list) or len(enriched) != len(findings_chunk):
+                    last_error = f"{model}: response shape mismatch"
+                    break  # don't retry a bad shape, try next model instead
+                return enriched, None
+            except _RetryableError as exc:
+                last_error = f"{model}: {exc}"
+                if attempt < MAX_RETRIES_PER_MODEL:
+                    time.sleep(RETRY_BACKOFF_BASE_SECONDS * (2 ** (attempt - 1)))
+                    continue
+                # exhausted retries for this model, fall through to next model
+            except _FatalModelError as exc:
+                # e.g. 404 model not found - no point retrying, try next model
+                last_error = f"{model}: {exc}"
+                break
+            except (KeyError, json.JSONDecodeError) as exc:
+                last_error = f"{model}: bad response format ({exc})"
+                break
+
+    return None, last_error
+
+
+class _RetryableError(Exception):
+    """Transient failure worth retrying (timeouts, 503, connection issues)."""
+
+
+class _FatalModelError(Exception):
+    """Non-retryable failure for this model (e.g. 404 unknown model, 400 bad request)."""
+
+
+def _call_gemini(model: str, body: bytes) -> list[dict]:
+    api_key = os.getenv("GEMINI_API_KEY")
+    url = f"{GEMINI_API_BASE}/{model}:generateContent?key={api_key}"
     request = urllib.request.Request(
         url,
-        data=json.dumps(payload).encode("utf-8"),
+        data=body,
         headers={"Content-Type": "application/json"},
         method="POST",
     )
     try:
-        with urllib.request.urlopen(request, timeout=120) as response:
+        with urllib.request.urlopen(request, timeout=REQUEST_TIMEOUT_SECONDS) as response:
             data = json.loads(response.read().decode("utf-8"))
-        text = data["candidates"][0]["content"]["parts"][0]["text"]
-        enriched = json.loads(text)
     except urllib.error.HTTPError as exc:
-        body = exc.read().decode("utf-8", errors="replace")[:500]
-        return None, f"HTTP {exc.code}: {body}"
-    except (KeyError, json.JSONDecodeError, urllib.error.URLError, TimeoutError) as exc:
-        return None, str(exc)
+        error_body = exc.read().decode("utf-8", errors="replace")[:500]
+        if exc.code == 503 or exc.code == 429:
+            raise _RetryableError(f"HTTP {exc.code}: {error_body}") from exc
+        raise _FatalModelError(f"HTTP {exc.code}: {error_body}") from exc
+    except (urllib.error.URLError, TimeoutError) as exc:
+        raise _RetryableError(str(exc)) from exc
 
-    if not isinstance(enriched, dict) or "summary" not in enriched or "findings" not in enriched:
-        return None, "Gemini returned JSON that did not match the expected report schema."
-    return enriched, None
+    text = data["candidates"][0]["content"]["parts"][0]["text"]
+    return json.loads(text)
 
 
 def _title_for(finding: dict) -> str:
