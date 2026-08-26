@@ -1,42 +1,31 @@
 name: Security scan
 
-# Deliberately using "pull_request", not "pull_request_target".
-# pull_request_target runs in the context of the base branch with a
-# privileged token, which is what enables GitHub Actions cache
-# poisoning attacks from forked PRs. Plain "pull_request" runs in the
-# PR's own isolated context - no access to the default branch's cache
-# or secrets, so there's nothing valuable for an attacker to poison.
 on:
   push:
     branches: [master]
   pull_request:
 
-# Least privilege: this workflow only needs to read the repo.
 permissions:
   contents: read
 
 jobs:
   scan:
     runs-on: ubuntu-latest
+    outputs:
+      high_count: ${{ steps.scan.outputs.high_count }}
+      is_public: ${{ steps.visibility.outputs.is_public }}
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-          cache: "pip" # caches pip's own download cache, separate from our scan cache below
+          cache: "pip"
 
       - name: Restore scan cache
         uses: actions/cache@v4
         with:
           path: .audit_cache.json
-          # A static-ish key (not tied to file hashes) so the cache
-          # persists across commits - our own scanner/cache.py already
-          # does the per-file content hashing and invalidation
-          # internally. hashFiles here would defeat the purpose by
-          # creating a brand new cache entry on every commit.
           key: audit-cache-${{ runner.os }}
           restore-keys: |
             audit-cache-
@@ -58,31 +47,86 @@ jobs:
           echo "high_count=$(python3 -c "import json; print(json.load(open('audit-report/raw_scan_result.json'))['severity_counts']['HIGH'])")" >> "$GITHUB_OUTPUT"
           cat audit-report/summary.md >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Determine repo visibility
+        id: visibility
+        run: |
+          if [ "${{ github.event.repository.private }}" = "true" ]; then
+            echo "is_public=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_public=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Upload audit report
-        id: upload-report
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: security-audit-report
           path: audit-report/
 
-      - name: Publish report link
-        if: always()
-        run: |
-          {
-            echo "## Security audit report"
-            echo ""
-            echo "The findings are shown above in this workflow summary."
-            echo ""
-            echo "[Download the HTML report artifact](${{ steps.upload-report.outputs.artifact-url }})"
-            echo ""
-            echo "Download the zip and open \`index.html\` for the full interactive report."
-            echo ""
-            echo "Access is controlled by GitHub permissions for this repository."
-          } >> "$GITHUB_STEP_SUMMARY"
-
       - name: Fail on HIGH severity findings
         if: steps.scan.outputs.high_count != '0'
         run: |
-          echo "Found ${{ steps.scan.outputs.high_count }} HIGH severity finding(s). See the workflow summary and security-audit-report artifact for details."
+          echo "Found ${{ steps.scan.outputs.high_count }} HIGH severity finding(s)."
           exit 1
+
+  publish-report:
+    needs: scan
+    if: always() && needs.scan.outputs.is_public == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write        
+      pull-requests: write   
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: security-audit-report
+          path: audit-report
+
+      - name: Determine destination path
+        id: dest
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "path=reports/pr-${{ github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "path=reports/${{ github.sha }}" >> "$GITHUB_OUTPUT"
+          fi
+          echo "url=https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy report to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: audit-report
+          destination_dir: ${{ steps.dest.outputs.path }}
+          keep_files: true  
+
+      - name: Comment on PR with report link
+        if: github.event_name == 'pull_request'
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: security-audit-report
+          message: |
+            ### 🔍 Security audit report
+            **[Open the full interactive report](${{ steps.dest.outputs.url }}/${{ steps.dest.outputs.path }}/)**
+
+      - name: Link report in step summary
+        run: |
+          {
+            echo "## 📄 Full interactive report"
+            echo "${{ steps.dest.outputs.url }}/${{ steps.dest.outputs.path }}/"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  private-repo-notice:
+    needs: scan
+    if: always() && needs.scan.outputs.is_public == 'false'
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          {
+            echo "## 🔒 Private repository"
+            echo ""
+            echo "The interactive HTML report isn't auto-published, because GitHub Pages served from a private repo is publicly visible on the internet unless your org has GitHub Enterprise Cloud with private Pages enabled."
+            echo "Download it from the \`security-audit-report\` artifact above."
+          } >> "$GITHUB_STEP_SUMMARY"
