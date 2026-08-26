@@ -1,0 +1,644 @@
+{
+  "schema_version": "1.0",
+  "ai_enriched": true,
+  "summary": {
+    "scanned_path": ".",
+    "total_findings": 23,
+    "severity_counts": {
+      "HIGH": 7,
+      "MEDIUM": 5,
+      "LOW": 11,
+      "UNRATED": 0
+    },
+    "files_scanned": 20,
+    "files_skipped_from_cache": 0,
+    "tool_timings_seconds": {
+      "bandit": 0.52,
+      "detect-secrets": 1.36,
+      "pip-audit": 9.41
+    }
+  },
+  "findings": [
+    {
+      "id": "8cc1600857",
+      "title": "Unsafe Use of urllib.urlopen with Potentially Malicious Schemes",
+      "severity": "MEDIUM",
+      "category": "code_vulnerability",
+      "tool": "bandit",
+      "rule_id": "B310",
+      "rule_name": "blacklist",
+      "location": {
+        "file": "scanner/ai_report.py",
+        "line": 201
+      },
+      "summary": "The application uses `urllib.urlopen` without explicitly restricting the URL schemes, which could allow opening local files (e.g., `file:///`) or other unexpected resources. This broad access may lead to information disclosure or other local attacks if an attacker can control the URL input.",
+      "risk": "High. Unrestricted URL schemes in `urllib.urlopen` can enable Server-Side Request Forgery (SSRF) or Local File Inclusion (LFI) vulnerabilities. An attacker could potentially access sensitive local files or internal network resources if they can supply arbitrary URLs.",
+      "recommended_fix": "Explicitly validate and whitelist allowed URL schemes (e.g., 'http', 'https') before passing URLs to `urllib.urlopen`. Consider using a more secure library for URL fetching, or ensure robust input validation and sanitization for all URL inputs.",
+      "safe_for_ai_copy": "Fix security finding B310 in scanner/ai_report.py:201: Unsafe Use of urllib.urlopen with Potentially Malicious Schemes. Restrict allowed URL schemes to prevent SSRF/LFI.",
+      "references": [
+        "https://bandit.readthedocs.io/en/1.9.4/blacklists/blacklist_calls.html#b310-urllib-urlopen"
+      ],
+      "metadata": {
+        "confidence": "HIGH",
+        "cwe": 22,
+        "fix_versions": [],
+        "aliases": []
+      },
+      "_index": 0
+    },
+    {
+      "id": "ad2a42a0d1",
+      "title": "Import of subprocess module for command execution",
+      "severity": "LOW",
+      "category": "code_vulnerability",
+      "tool": "bandit",
+      "rule_id": "B404",
+      "rule_name": "blacklist",
+      "location": {
+        "file": "scanner/bandit_scan.py",
+        "line": 9
+      },
+      "summary": "The `subprocess` module is imported, which allows for the execution of external commands. While powerful, its use without careful input sanitization can introduce command injection vulnerabilities.",
+      "risk": "Medium. If external, untrusted input is used to construct or influence commands executed via `subprocess`, it could lead to arbitrary command execution on the host system.",
+      "recommended_fix": "Review all instances where the `subprocess` module is used. Ensure that any arguments passed to `subprocess` functions are either hardcoded, from trusted sources, or rigorously sanitized. Prefer using the `shlex.quote()` function for quoting arguments if untrusted input must be used, and avoid `shell=True` where possible. If only specific commands are needed, consider using safer alternatives or dedicated APIs.",
+      "safe_for_ai_copy": "Fix security finding B404 in scanner/bandit_scan.py:9: Import of subprocess module for command execution. Review usage for command injection risks.",
+      "references": [
+        "https://bandit.readthedocs.io/en/1.9.4/blacklists/blacklist_imports.html#b404-import-subprocess"
+      ],
+      "metadata": {
+        "confidence": "HIGH",
+        "cwe": 78,
+        "fix_versions": [],
+        "aliases": []
+      },
+      "_index": 1
+    },
+    {
+      "id": "57ab89f3db",
+      "title": "Process Started with Partial Executable Path (PATH Hijacking Risk)",
+      "severity": "LOW",
+      "category": "code_vulnerability",
+      "tool": "bandit",
+      "rule_id": "B607",
+      "rule_name": "start_process_with_partial_path",
+      "location": {
+        "file": "scanner/bandit_scan.py",
+        "line": 27
+      },
+      "summary": "A process is being started using an executable path that is not fully qualified (e.g., 'command' instead of '/usr/bin/command'). This allows the operating system to search for the executable in directories defined in the system's PATH environment variable.",
+      "risk": "Medium. If an attacker can manipulate the PATH environment variable or place a malicious executable in a directory that is searched before the legitimate one, they could execute arbitrary code. This is particularly risky in environments where untrusted users can influence the execution context.",
+      "recommended_fix": "Always specify the full, absolute path to the executable when starting a process (e.g., `/usr/bin/python` instead of `python`). This eliminates ambiguity and prevents PATH hijacking vulnerabilities. If the executable location can vary, resolve it securely at runtime.",
+      "safe_for_ai_copy": "Fix security finding B607 in scanner/bandit_scan.py:27: Process Started with Partial Executable Path. Use absolute paths to prevent PATH hijacking.",
+      "references": [
+        "https://bandit.readthedocs.io/en/1.9.4/plugins/b607_start_process_with_partial_path.html"
+      ],
+      "metadata": {
+        "confidence": "HIGH",
+        "cwe": 78,
+        "fix_versions": [],
+        "aliases": []
+      },
+      "_index": 2
+    },
+    {
+      "id": "8f465fbd0d",
+      "title": "Subprocess Execution with Untrusted Input Without 'shell=True'",
+      "severity": "LOW",
+      "category": "code_vulnerability",
+      "tool": "bandit",
+      "rule_id": "B603",
+      "rule_name": "subprocess_without_shell_equals_true",
+      "location": {
+        "file": "scanner/bandit_scan.py",
+        "line": 27
+      },
+      "summary": "A `subprocess` call is made without `shell=True`, but the arguments may still contain or be influenced by untrusted input. While `shell=True` explicitly executes commands through a shell, direct execution without it can still be vulnerable if arguments are not properly escaped and user-controlled data is included.",
+      "risk": "Medium. If untrusted input is passed directly as arguments to a subprocess command, an attacker might be able to inject malicious commands or manipulate command behavior through crafted input, even without `shell=True`.",
+      "recommended_fix": "Ensure all arguments passed to `subprocess` functions are either fixed strings, from trusted sources, or rigorously validated and sanitized. If any part of the command comes from untrusted input, use `shlex.quote()` to properly escape arguments to prevent command injection. Whenever possible, avoid constructing commands with user input and instead pass arguments as a list to prevent shell interpretation.",
+      "safe_for_ai_copy": "Fix security finding B603 in scanner/bandit_scan.py:27: Subprocess Execution with Untrusted Input. Validate and escape all arguments from untrusted sources.",
+      "references": [
+        "https://bandit.readthedocs.io/en/1.9.4/plugins/b603_subprocess_without_shell_equals_true.html"
+      ],
+      "metadata": {
+        "confidence": "HIGH",
+        "cwe": 78,
+        "fix_versions": [],
+        "aliases": []
+      },
+      "_index": 3
+    },
+    {
+      "id": "51442b36db",
+      "title": "Import of subprocess module for command execution",
+      "severity": "LOW",
+      "category": "code_vulnerability",
+      "tool": "bandit",
+      "rule_id": "B404",
+      "rule_name": "blacklist",
+      "location": {
+        "file": "scanner/deps_scan.py",
+        "line": 9
+      },
+      "summary": "The `subprocess` module is imported, which allows for the execution of external commands. While powerful, its use without careful input sanitization can introduce command injection vulnerabilities.",
+      "risk": "Medium. If external, untrusted input is used to construct or influence commands executed via `subprocess`, it could lead to arbitrary command execution on the host system.",
+      "recommended_fix": "Review all instances where the `subprocess` module is used. Ensure that any arguments passed to `subprocess` functions are either hardcoded, from trusted sources, or rigorously sanitized. Prefer using the `shlex.quote()` function for quoting arguments if untrusted input must be used, and avoid `shell=True` where possible. If only specific commands are needed, consider using safer alternatives or dedicated APIs.",
+      "safe_for_ai_copy": "Fix security finding B404 in scanner/deps_scan.py:9: Import of subprocess module for command execution. Review usage for command injection risks.",
+      "references": [
+        "https://bandit.readthedocs.io/en/1.9.4/blacklists/blacklist_imports.html#b404-import-subprocess"
+      ],
+      "metadata": {
+        "confidence": "HIGH",
+        "cwe": 78,
+        "fix_versions": [],
+        "aliases": []
+      },
+      "_index": 4
+    },
+    {
+      "id": "e2990233c5",
+      "title": "Process Started with Partial Executable Path (PATH Hijacking Risk)",
+      "severity": "LOW",
+      "category": "code_vulnerability",
+      "tool": "bandit",
+      "rule_id": "B607",
+      "rule_name": "start_process_with_partial_path",
+      "location": {
+        "file": "scanner/deps_scan.py",
+        "line": 13
+      },
+      "summary": "A process is being started using an executable path that is not fully qualified (e.g., 'command' instead of '/usr/bin/command'). This allows the operating system to search for the executable in directories defined in the system's PATH environment variable.",
+      "risk": "Medium. If an attacker can manipulate the PATH environment variable or place a malicious executable in a directory that is searched before the legitimate one, they could execute arbitrary code. This is particularly risky in environments where untrusted users can influence the execution context.",
+      "recommended_fix": "Always specify the full, absolute path to the executable when starting a process (e.g., `/usr/bin/python` instead of `python`). This eliminates ambiguity and prevents PATH hijacking vulnerabilities. If the executable location can vary, resolve it securely at runtime.",
+      "safe_for_ai_copy": "Fix security finding B607 in scanner/deps_scan.py:13: Process Started with Partial Executable Path. Use absolute paths to prevent PATH hijacking.",
+      "references": [
+        "https://bandit.readthedocs.io/en/1.9.4/plugins/b607_start_process_with_partial_path.html"
+      ],
+      "metadata": {
+        "confidence": "HIGH",
+        "cwe": 78,
+        "fix_versions": [],
+        "aliases": []
+      },
+      "_index": 5
+    },
+    {
+      "id": "ebbd7e8520",
+      "title": "Subprocess Execution with Untrusted Input Without 'shell=True'",
+      "severity": "LOW",
+      "category": "code_vulnerability",
+      "tool": "bandit",
+      "rule_id": "B603",
+      "rule_name": "subprocess_without_shell_equals_true",
+      "location": {
+        "file": "scanner/deps_scan.py",
+        "line": 13
+      },
+      "summary": "A `subprocess` call is made without `shell=True`, but the arguments may still contain or be influenced by untrusted input. While `shell=True` explicitly executes commands through a shell, direct execution without it can still be vulnerable if arguments are not properly escaped and user-controlled data is included.",
+      "risk": "Medium. If untrusted input is passed directly as arguments to a subprocess command, an attacker might be able to inject malicious commands or manipulate command behavior through crafted input, even without `shell=True`.",
+      "recommended_fix": "Ensure all arguments passed to `subprocess` functions are either fixed strings, from trusted sources, or rigorously validated and sanitized. If any part of the command comes from untrusted input, use `shlex.quote()` to properly escape arguments to prevent command injection. Whenever possible, avoid constructing commands with user input and instead pass arguments as a list to prevent shell interpretation.",
+      "safe_for_ai_copy": "Fix security finding B603 in scanner/deps_scan.py:13: Subprocess Execution with Untrusted Input. Validate and escape all arguments from untrusted sources.",
+      "references": [
+        "https://bandit.readthedocs.io/en/1.9.4/plugins/b603_subprocess_without_shell_equals_true.html"
+      ],
+      "metadata": {
+        "confidence": "HIGH",
+        "cwe": 78,
+        "fix_versions": [],
+        "aliases": []
+      },
+      "_index": 6
+    },
+    {
+      "id": "7655f23a6e",
+      "title": "Import of subprocess module for command execution",
+      "severity": "LOW",
+      "category": "code_vulnerability",
+      "tool": "bandit",
+      "rule_id": "B404",
+      "rule_name": "blacklist",
+      "location": {
+        "file": "scanner/secrets_scan.py",
+        "line": 10
+      },
+      "summary": "The `subprocess` module is imported, which allows for the execution of external commands. While powerful, its use without careful input sanitization can introduce command injection vulnerabilities.",
+      "risk": "Medium. If external, untrusted input is used to construct or influence commands executed via `subprocess`, it could lead to arbitrary command execution on the host system.",
+      "recommended_fix": "Review all instances where the `subprocess` module is used. Ensure that any arguments passed to `subprocess` functions are either hardcoded, from trusted sources, or rigorously sanitized. Prefer using the `shlex.quote()` function for quoting arguments if untrusted input must be used, and avoid `shell=True` where possible. If only specific commands are needed, consider using safer alternatives or dedicated APIs.",
+      "safe_for_ai_copy": "Fix security finding B404 in scanner/secrets_scan.py:10: Import of subprocess module for command execution. Review usage for command injection risks.",
+      "references": [
+        "https://bandit.readthedocs.io/en/1.9.4/blacklists/blacklist_imports.html#b404-import-subprocess"
+      ],
+      "metadata": {
+        "confidence": "HIGH",
+        "cwe": 78,
+        "fix_versions": [],
+        "aliases": []
+      },
+      "_index": 7
+    },
+    {
+      "id": "17184c9fbb",
+      "title": "Process Started with Partial Executable Path (PATH Hijacking Risk)",
+      "severity": "LOW",
+      "category": "code_vulnerability",
+      "tool": "bandit",
+      "rule_id": "B607",
+      "rule_name": "start_process_with_partial_path",
+      "location": {
+        "file": "scanner/secrets_scan.py",
+        "line": 25
+      },
+      "summary": "A process is being started using an executable path that is not fully qualified (e.g., 'command' instead of '/usr/bin/command'). This allows the operating system to search for the executable in directories defined in the system's PATH environment variable.",
+      "risk": "Medium. If an attacker can manipulate the PATH environment variable or place a malicious executable in a directory that is searched before the legitimate one, they could execute arbitrary code. This is particularly risky in environments where untrusted users can influence the execution context.",
+      "recommended_fix": "Always specify the full, absolute path to the executable when starting a process (e.g., `/usr/bin/python` instead of `python`). This eliminates ambiguity and prevents PATH hijacking vulnerabilities. If the executable location can vary, resolve it securely at runtime.",
+      "safe_for_ai_copy": "Fix security finding B607 in scanner/secrets_scan.py:25: Process Started with Partial Executable Path. Use absolute paths to prevent PATH hijacking.",
+      "references": [
+        "https://bandit.readthedocs.io/en/1.9.4/plugins/b607_start_process_with_partial_path.html"
+      ],
+      "metadata": {
+        "confidence": "HIGH",
+        "cwe": 78,
+        "fix_versions": [],
+        "aliases": []
+      },
+      "_index": 8
+    },
+    {
+      "id": "0f73a603c4",
+      "title": "Subprocess Execution with Untrusted Input Without 'shell=True'",
+      "severity": "LOW",
+      "category": "code_vulnerability",
+      "tool": "bandit",
+      "rule_id": "B603",
+      "rule_name": "subprocess_without_shell_equals_true",
+      "location": {
+        "file": "scanner/secrets_scan.py",
+        "line": 25
+      },
+      "summary": "A `subprocess` call is made without `shell=True`, but the arguments may still contain or be influenced by untrusted input. While `shell=True` explicitly executes commands through a shell, direct execution without it can still be vulnerable if arguments are not properly escaped and user-controlled data is included.",
+      "risk": "Medium. If untrusted input is passed directly as arguments to a subprocess command, an attacker might be able to inject malicious commands or manipulate command behavior through crafted input, even without `shell=True`.",
+      "recommended_fix": "Ensure all arguments passed to `subprocess` functions are either fixed strings, from trusted sources, or rigorously validated and sanitized. If any part of the command comes from untrusted input, use `shlex.quote()` to properly escape arguments to prevent command injection. Whenever possible, avoid constructing commands with user input and instead pass arguments as a list to prevent shell interpretation.",
+      "safe_for_ai_copy": "Fix security finding B603 in scanner/secrets_scan.py:25: Subprocess Execution with Untrusted Input. Validate and escape all arguments from untrusted sources.",
+      "references": [
+        "https://bandit.readthedocs.io/en/1.9.4/plugins/b603_subprocess_without_shell_equals_true.html"
+      ],
+      "metadata": {
+        "confidence": "HIGH",
+        "cwe": 78,
+        "fix_versions": [],
+        "aliases": []
+      },
+      "_index": 9
+    },
+    {
+      "id": "74f77dafbb",
+      "title": "Import of subprocess module for command execution",
+      "severity": "LOW",
+      "category": "code_vulnerability",
+      "tool": "bandit",
+      "rule_id": "B404",
+      "rule_name": "blacklist",
+      "location": {
+        "file": "test_samples/vulnerable_app.py",
+        "line": 5
+      },
+      "summary": "The `subprocess` module is imported, which allows for the execution of external commands. While powerful, its use without careful input sanitization can introduce command injection vulnerabilities.",
+      "risk": "Medium. If external, untrusted input is used to construct or influence commands executed via `subprocess`, it could lead to arbitrary command execution on the host system.",
+      "recommended_fix": "Review all instances where the `subprocess` module is used. Ensure that any arguments passed to `subprocess` functions are either hardcoded, from trusted sources, or rigorously sanitized. Prefer using the `shlex.quote()` function for quoting arguments if untrusted input must be used, and avoid `shell=True` where possible. If only specific commands are needed, consider using safer alternatives or dedicated APIs.",
+      "safe_for_ai_copy": "Fix security finding B404 in test_samples/vulnerable_app.py:5: Import of subprocess module for command execution. Review usage for command injection risks.",
+      "references": [
+        "https://bandit.readthedocs.io/en/1.9.4/blacklists/blacklist_imports.html#b404-import-subprocess"
+      ],
+      "metadata": {
+        "confidence": "HIGH",
+        "cwe": 78,
+        "fix_versions": [],
+        "aliases": []
+      },
+      "_index": 10
+    },
+    {
+      "id": "f53f3d6061",
+      "title": "Hardcoded Password String Detected",
+      "severity": "LOW",
+      "category": "code_vulnerability",
+      "tool": "bandit",
+      "rule_id": "B105",
+      "rule_name": "hardcoded_password_string",
+      "location": {
+        "file": "test_samples/vulnerable_app.py",
+        "line": 15
+      },
+      "summary": "A string resembling a password or sensitive secret was found directly embedded in the source code: '[REDACTED_SECRET]'.",
+      "risk": "High. Hardcoding credentials poses a significant security risk. If the code is compromised or accidentally exposed (e.g., through version control, logs, or backups), this secret could be uncovered and used for unauthorized access to systems or data. This violates the principle of least privilege and secure configuration.",
+      "recommended_fix": "Remove hardcoded passwords and sensitive secrets from the source code. Instead, store them securely using environment variables, a dedicated secrets management service (e.g., AWS Secrets Manager, HashiCorp Vault), or a secure configuration management system. Access secrets at runtime in a secure manner.",
+      "safe_for_ai_copy": "Fix security finding B105 in test_samples/vulnerable_app.py:15: Hardcoded Password String Detected. Remove hardcoded secret and use a secure secrets management solution.",
+      "references": [
+        "https://bandit.readthedocs.io/en/1.9.4/plugins/b105_hardcoded_password_string.html"
+      ],
+      "metadata": {
+        "confidence": "MEDIUM",
+        "cwe": 259,
+        "fix_versions": [],
+        "aliases": []
+      },
+      "_index": 11
+    },
+    {
+      "id": "7693556cdb",
+      "title": "SQL Injection Risk from Hardcoded SQL Expressions",
+      "severity": "MEDIUM",
+      "category": "code_vulnerability",
+      "tool": "bandit",
+      "rule_id": "B608",
+      "rule_name": "hardcoded_sql_expressions",
+      "location": {
+        "file": "test_samples/vulnerable_app.py",
+        "line": 21
+      },
+      "summary": "This finding indicates a potential SQL injection vulnerability due to the direct use of string concatenation to build SQL queries. If user-controlled input is incorporated into these queries without proper sanitization or parameterization, an attacker could manipulate the query logic.",
+      "risk": "High. An attacker could inject malicious SQL code, leading to unauthorized data access, modification, or deletion, and potentially compromise the integrity and confidentiality of your database. The severity depends on the context and accessibility of the affected code path to untrusted input.",
+      "recommended_fix": "Refactor the SQL query construction to use parameterized queries or prepared statements provided by your database driver. Avoid concatenating user input directly into SQL strings. Always validate and sanitize any external input before incorporating it into database operations.",
+      "safe_for_ai_copy": "Fix B608 in test_samples/vulnerable_app.py:21. Issue: Potential SQL injection due to hardcoded SQL expressions. Use parameterized queries instead.",
+      "references": [
+        "https://bandit.readthedocs.io/en/1.9.4/plugins/b608_hardcoded_sql_expressions.html"
+      ],
+      "metadata": {
+        "confidence": "LOW",
+        "cwe": 89,
+        "fix_versions": [],
+        "aliases": []
+      },
+      "_index": 12
+    },
+    {
+      "id": "5d0c8a939e",
+      "title": "Arbitrary Command Execution via Subprocess with shell=True",
+      "severity": "HIGH",
+      "category": "code_vulnerability",
+      "tool": "bandit",
+      "rule_id": "B602",
+      "rule_name": "subprocess_popen_with_shell_equals_true",
+      "location": {
+        "file": "test_samples/vulnerable_app.py",
+        "line": 27
+      },
+      "summary": "A subprocess call using `shell=True` has been identified. This is a common security risk as it allows the execution of arbitrary shell commands if any part of the command string is derived from untrusted input, potentially leading to remote code execution.",
+      "risk": "Critical. If an attacker can control any part of the command string passed to `subprocess.Popen` with `shell=True`, they can execute arbitrary operating system commands on the server, leading to full system compromise, data exfiltration, or denial of service.",
+      "recommended_fix": "Avoid using `shell=True` unless absolutely necessary. Instead, pass the command and its arguments as a list to `subprocess.Popen`. If `shell=True` is unavoidable, ensure that all components of the command string are strictly controlled and never include unsanitized user input.",
+      "safe_for_ai_copy": "Fix B602 in test_samples/vulnerable_app.py:27. Issue: `subprocess.Popen` used with `shell=True`. Refactor to pass command as a list to prevent command injection.",
+      "references": [
+        "https://bandit.readthedocs.io/en/1.9.4/plugins/b602_subprocess_popen_with_shell_equals_true.html"
+      ],
+      "metadata": {
+        "confidence": "HIGH",
+        "cwe": 78,
+        "fix_versions": [],
+        "aliases": []
+      },
+      "_index": 13
+    },
+    {
+      "id": "2d1b0aad6b",
+      "title": "Insecure Hashing Algorithm (MD5) Used for Security Purposes",
+      "severity": "HIGH",
+      "category": "code_vulnerability",
+      "tool": "bandit",
+      "rule_id": "B324",
+      "rule_name": "hashlib",
+      "location": {
+        "file": "test_samples/vulnerable_app.py",
+        "line": 32
+      },
+      "summary": "The application uses the MD5 hashing algorithm, which is cryptographically weak and unsuitable for security-sensitive operations such as password storage, digital signatures, or integrity checks. MD5 is vulnerable to collision attacks, meaning different inputs can produce the same hash output.",
+      "risk": "High. Using MD5 for security-critical functions can allow attackers to forge digital signatures, bypass integrity checks, or crack hashed passwords more easily, compromising data authenticity, integrity, and confidentiality.",
+      "recommended_fix": "Replace MD5 with a cryptographically strong hashing algorithm, such as SHA-256 or SHA-3, for security-related purposes. For password storage, use dedicated password hashing functions like bcrypt, scrypt, or Argon2, which are designed to be slow and resistant to brute-force attacks.",
+      "safe_for_ai_copy": "Fix B324 in test_samples/vulnerable_app.py:32. Issue: MD5 hash used for security. Replace with a stronger algorithm like SHA-256 or a password hashing function.",
+      "references": [
+        "https://bandit.readthedocs.io/en/1.9.4/plugins/b324_hashlib.html"
+      ],
+      "metadata": {
+        "confidence": "HIGH",
+        "cwe": 327,
+        "fix_versions": [],
+        "aliases": []
+      },
+      "_index": 14
+    },
+    {
+      "id": "0425e090d5",
+      "title": "Unsafe YAML Deserialization Allows Arbitrary Object Instantiation",
+      "severity": "MEDIUM",
+      "category": "code_vulnerability",
+      "tool": "bandit",
+      "rule_id": "B506",
+      "rule_name": "yaml_load",
+      "location": {
+        "file": "test_samples/vulnerable_app.py",
+        "line": 37
+      },
+      "summary": "The `yaml.load()` function is being used, which is known to be unsafe. It can deserialize arbitrary Python objects from YAML data, posing a significant security risk if the YAML input is controlled by an attacker. This can lead to remote code execution.",
+      "risk": "Critical. An attacker providing specially crafted YAML input can trigger arbitrary code execution, denial of service, or other malicious actions on the server, potentially compromising the entire system.",
+      "recommended_fix": "Replace `yaml.load()` with `yaml.safe_load()`. The `safe_load` function restricts deserialization to a safe subset of YAML tags, preventing the instantiation of arbitrary Python objects and significantly mitigating the risk of code execution.",
+      "safe_for_ai_copy": "Fix B506 in test_samples/vulnerable_app.py:37. Issue: Unsafe `yaml.load()` usage. Switch to `yaml.safe_load()` to prevent arbitrary object instantiation and potential RCE.",
+      "references": [
+        "https://bandit.readthedocs.io/en/1.9.4/plugins/b506_yaml_load.html"
+      ],
+      "metadata": {
+        "confidence": "HIGH",
+        "cwe": 20,
+        "fix_versions": [],
+        "aliases": []
+      },
+      "_index": 15
+    },
+    {
+      "id": "7b0de772f4",
+      "title": "Arbitrary Code Execution via Insecure `eval()` Function",
+      "severity": "MEDIUM",
+      "category": "code_vulnerability",
+      "tool": "bandit",
+      "rule_id": "B307",
+      "rule_name": "blacklist",
+      "location": {
+        "file": "test_samples/vulnerable_app.py",
+        "line": 44
+      },
+      "summary": "The `eval()` function is used, which can execute arbitrary Python code. If `eval()` processes untrusted input, it becomes a severe security vulnerability, allowing attackers to run any code they wish within the application's context.",
+      "risk": "Critical. An attacker can achieve arbitrary code execution on the server by supplying malicious input to `eval()`, leading to full system compromise, data theft, or denial of service.",
+      "recommended_fix": "Avoid using `eval()` with untrusted input. If you need to evaluate Python literal structures (strings, numbers, tuples, lists, dicts, booleans, and None), use `ast.literal_eval()` instead, as it is designed to be safe for such cases. For other scenarios, consider redesigning the logic to avoid dynamic code execution.",
+      "safe_for_ai_copy": "Fix B307 in test_samples/vulnerable_app.py:44. Issue: Insecure use of `eval()`. Replace with `ast.literal_eval()` for safe evaluation of literal structures, or refactor to avoid dynamic code execution.",
+      "references": [
+        "https://bandit.readthedocs.io/en/1.9.4/blacklists/blacklist_calls.html#b307-eval"
+      ],
+      "metadata": {
+        "confidence": "HIGH",
+        "cwe": 78,
+        "fix_versions": [],
+        "aliases": []
+      },
+      "_index": 16
+    },
+    {
+      "id": "da50699684",
+      "title": "Flask Debug Mode Enabled in Production Environment",
+      "severity": "HIGH",
+      "category": "code_vulnerability",
+      "tool": "bandit",
+      "rule_id": "B201",
+      "rule_name": "flask_debug_true",
+      "location": {
+        "file": "test_samples/vulnerable_app.py",
+        "line": 49
+      },
+      "summary": "The Flask application is configured to run with `debug=True`. While useful for development, this setting exposes the Werkzeug debugger, which can allow an attacker to execute arbitrary Python code on the server if they gain access to the debugger's PIN.",
+      "risk": "Critical. In a production environment, enabling debug mode exposes sensitive information and allows remote code execution if the debugger is compromised, leading to complete system compromise.",
+      "recommended_fix": "Ensure that Flask applications are run with `debug=False` in production environments. Use environment variables or configuration files to manage debug settings, allowing it to be enabled only during development. Restart the application after changing this setting.",
+      "safe_for_ai_copy": "Fix B201 in test_samples/vulnerable_app.py:49. Issue: Flask debug mode enabled. Set `debug=False` for production to prevent arbitrary code execution via the debugger.",
+      "references": [
+        "https://bandit.readthedocs.io/en/1.9.4/plugins/b201_flask_debug_true.html"
+      ],
+      "metadata": {
+        "confidence": "MEDIUM",
+        "cwe": 94,
+        "fix_versions": [],
+        "aliases": []
+      },
+      "_index": 17
+    },
+    {
+      "id": "6d23a9dd80",
+      "title": "Application Binds to All Network Interfaces (0.0.0.0)",
+      "severity": "MEDIUM",
+      "category": "code_vulnerability",
+      "tool": "bandit",
+      "rule_id": "B104",
+      "rule_name": "hardcoded_bind_all_interfaces",
+      "location": {
+        "file": "test_samples/vulnerable_app.py",
+        "line": 49
+      },
+      "summary": "The application is configured to listen on all available network interfaces (e.g., binding to '0.0.0.0'). This practice can expose the service to a wider network than intended, potentially making it accessible from external networks or other hosts unnecessarily.",
+      "risk": "Medium. Binding to all interfaces increases the attack surface of the application. If the service contains vulnerabilities, they become exploitable from any network segment that can reach the host, rather than being restricted to local access.",
+      "recommended_fix": "Configure the application to bind only to specific, necessary network interfaces or IP addresses. For example, bind to '127.0.0.1' (localhost) if the service should only be accessible locally, or to a specific internal IP if it's part of a private network.",
+      "safe_for_ai_copy": "Fix B104 in test_samples/vulnerable_app.py:49. Issue: Application binds to all network interfaces. Restrict binding to specific IP addresses to reduce attack surface.",
+      "references": [
+        "https://bandit.readthedocs.io/en/1.9.4/plugins/b104_hardcoded_bind_all_interfaces.html"
+      ],
+      "metadata": {
+        "confidence": "MEDIUM",
+        "cwe": 605,
+        "fix_versions": [],
+        "aliases": []
+      },
+      "_index": 18
+    },
+    {
+      "id": "19171acd42",
+      "title": "Hardcoded Base64 Encoded High Entropy String Detected in .env File",
+      "severity": "HIGH",
+      "category": "exposed_secret",
+      "tool": "detect-secrets",
+      "rule_id": "base64_high_entropy_string",
+      "rule_name": "Base64 High Entropy String",
+      "location": {
+        "file": "test_samples/.env",
+        "line": 2
+      },
+      "summary": "A Base64-encoded string with high entropy, indicative of a potential secret (e.g., API key, encryption key), has been found hardcoded in the `.env` file and committed to the repository. This exposes sensitive information.",
+      "risk": "Critical. If this exposed string is a valid credential or key, an attacker gaining access to the repository can use it for unauthorized access to connected systems, data breaches, or impersonation, leading to severe security and compliance implications.",
+      "recommended_fix": "Immediately revoke and rotate the exposed credential/key. Remove the secret from the `.env` file and all version control history. Store secrets securely in a dedicated secret management service (e.g., AWS Secrets Manager, HashiCorp Vault) and inject them at runtime, or use environment variables loaded outside of version control for local development.",
+      "safe_for_ai_copy": "Fix `base64_high_entropy_string` in test_samples/.env:2. Issue: Hardcoded Base64 secret. Revoke, remove from history, and use a secret manager.",
+      "references": [
+        "https://cwe.mitre.org/data/definitions/798.html"
+      ],
+      "metadata": {
+        "confidence": "MEDIUM",
+        "cwe": 798,
+        "fix_versions": [],
+        "aliases": []
+      },
+      "_index": 19
+    },
+    {
+      "id": "9233ef8a18",
+      "title": "Hardcoded Secret Keyword Detected in .env File",
+      "severity": "HIGH",
+      "category": "exposed_secret",
+      "tool": "detect-secrets",
+      "rule_id": "secret_keyword",
+      "rule_name": "Secret Keyword",
+      "location": {
+        "file": "test_samples/.env",
+        "line": 2
+      },
+      "summary": "A keyword commonly associated with sensitive information (e.g., 'password', 'secret_key') has been found in the `.env` file alongside a value. This indicates a potential hardcoded secret committed to the repository, which could be a valid credential.",
+      "risk": "Critical. If the detected value associated with the 'secret' keyword is an active credential (e.g., a database password, API token), its exposure enables unauthorized access to critical systems, leading to data breaches or service compromise.",
+      "recommended_fix": "Immediately revoke and rotate the exposed credential. Remove the secret from the `.env` file and all version control history. Implement a robust secret management strategy, utilizing secure environment variables, a secrets manager, or dynamic secrets for accessing sensitive data, ensuring secrets are never hardcoded or committed.",
+      "safe_for_ai_copy": "Fix `secret_keyword` in test_samples/.env:2. Issue: Hardcoded secret keyword detected. Revoke, remove from history, and use a secure secret management solution.",
+      "references": [
+        "https://cwe.mitre.org/data/definitions/798.html"
+      ],
+      "metadata": {
+        "confidence": "MEDIUM",
+        "cwe": 798,
+        "fix_versions": [],
+        "aliases": []
+      },
+      "_index": 20
+    },
+    {
+      "id": "11c29fb54d",
+      "title": "AWS Access Key Hardcoded and Exposed in Source Code",
+      "severity": "HIGH",
+      "category": "exposed_secret",
+      "tool": "detect-secrets",
+      "rule_id": "aws_access_key",
+      "rule_name": "AWS Access Key",
+      "location": {
+        "file": "test_samples/vulnerable_app.py",
+        "line": 14
+      },
+      "summary": "An AWS Access Key has been detected directly within the source code (`vulnerable_app.py`). Hardcoding and committing cloud provider credentials poses an extreme security risk as it grants direct programmatic access to AWS resources associated with that key.",
+      "risk": "Critical. An exposed AWS Access Key can allow an attacker to gain full control over the associated AWS account's resources, including data access, infrastructure modification, and financial fraud. This could lead to massive data breaches, service disruption, and significant monetary loss.",
+      "recommended_fix": "Immediately invalidate and revoke the exposed AWS Access Key. Remove the hardcoded key from the source code and all version control history. Configure applications to use IAM Roles (for EC2 instances/containers), AWS Secrets Manager, or environment variables (for local development, not committed) to securely manage and access AWS credentials without embedding them in code.",
+      "safe_for_ai_copy": "Fix `aws_access_key` in test_samples/vulnerable_app.py:14. Issue: Hardcoded AWS Access Key. Revoke immediately, remove from history, and use IAM Roles or Secrets Manager.",
+      "references": [
+        "https://cwe.mitre.org/data/definitions/798.html"
+      ],
+      "metadata": {
+        "confidence": "MEDIUM",
+        "cwe": 798,
+        "fix_versions": [],
+        "aliases": []
+      },
+      "_index": 21
+    },
+    {
+      "id": "230a2a78e8",
+      "title": "Hardcoded Secret Keyword Detected in Source Code",
+      "severity": "HIGH",
+      "category": "exposed_secret",
+      "tool": "detect-secrets",
+      "rule_id": "secret_keyword",
+      "rule_name": "Secret Keyword",
+      "location": {
+        "file": "test_samples/vulnerable_app.py",
+        "line": 15
+      },
+      "summary": "A value associated with a 'secret' keyword (e.g., 'API_KEY', 'DATABASE_PASSWORD') has been found hardcoded directly in the Python source file. This indicates a potential sensitive credential committed to the repository.",
+      "risk": "Critical. If the detected value is an active credential, its exposure provides an attacker with unauthorized access to sensitive systems or data. This can lead to data breaches, service disruption, and reputational damage.",
+      "recommended_fix": "Immediately revoke and rotate the exposed credential. Remove the hardcoded secret from the source code and all version control history. Employ secure practices for handling secrets, such as using environment variables loaded at runtime, a dedicated secret management service, or injecting them via CI/CD pipelines, ensuring they are never stored directly in code or version control.",
+      "safe_for_ai_copy": "Fix `secret_keyword` in test_samples/vulnerable_app.py:15. Issue: Hardcoded secret keyword. Revoke, remove from history, and use secure secret management.",
+      "references": [
+        "https://cwe.mitre.org/data/definitions/798.html"
+      ],
+      "metadata": {
+        "confidence": "MEDIUM",
+        "cwe": 798,
+        "fix_versions": [],
+        "aliases": []
+      },
+      "_index": 22
+    }
+  ]
+}
