@@ -1,0 +1,176 @@
+name: 'AI Code Auditor'
+description: 'Runs bandit, detect-secrets and pip-audit concurrently with content-hash caching, optionally enriches findings with Gemini, and can publish an interactive HTML report to GitHub Pages.'
+author: 'maorVakn'
+branding:
+  icon: 'shield'
+  color: 'red'
+
+inputs:
+  code-path:
+    description: 'Path (relative to the caller repo root) to scan.'
+    required: false
+    default: '.'
+  requirements-path:
+    description: 'Path to requirements.txt. Left empty, the action looks for <code-path>/requirements.txt.'
+    required: false
+    default: ''
+  gemini-api-key:
+    description: 'Optional Gemini API key for AI-enriched findings. Leave empty to use the deterministic fallback report.'
+    required: false
+    default: ''
+  fail-on-high:
+    description: 'Fail this step if any HIGH severity finding is present.'
+    required: false
+    default: 'true'
+  publish-report:
+    description: >
+      Whether to publish the HTML report to the gh-pages branch: "true", "false", or "auto"
+      (auto = publish only if the calling repo is public - a private repo's GitHub Pages
+      site is publicly visible on the internet unless the org has GitHub Enterprise Cloud).
+    required: false
+    default: 'auto'
+
+outputs:
+  high-count:
+    description: 'Number of HIGH severity findings found.'
+    value: ${{ steps.scan.outputs.high_count }}
+  report-url:
+    description: 'Public URL of the published HTML report (empty if not published).'
+    value: ${{ steps.dest.outputs.full_url }}
+
+runs:
+  using: 'composite'
+  steps:
+    # NOTE: the caller's workflow must run actions/checkout@v4 on their own
+    # repo BEFORE this action, in the same job. This action itself is
+    # checked out separately by GitHub into ${{ github.action_path }} -
+    # that's where the scanner/ package lives, not in the caller's working
+    # directory.
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+
+    - name: Install scanner dependencies
+      shell: bash
+      run: pip install -r "${{ github.action_path }}/requirements.txt"
+
+    - name: Restore scan cache
+      uses: actions/cache@v4
+      with:
+        path: .audit_cache.json
+        key: audit-cache-${{ runner.os }}
+        restore-keys: |
+          audit-cache-
+
+    - name: Run security scan
+      id: scan
+      shell: bash
+      env:
+        GEMINI_API_KEY: ${{ inputs.gemini-api-key }}
+        # makes `scanner` importable even though it physically lives under
+        # the action's own checkout, not the caller's working directory
+        PYTHONPATH: ${{ github.action_path }}
+      run: |
+        mkdir -p audit-report
+        python3 -m scanner.aggregator "${{ inputs.code-path }}" ${{ inputs.requirements-path }} \
+          --report-json audit-report/audit_report.json \
+          --html audit-report/index.html \
+          --markdown audit-report/summary.md \
+          > audit-report/raw_scan_result.json
+        echo "high_count=$(python3 -c "import json; print(json.load(open('audit-report/raw_scan_result.json'))['severity_counts']['HIGH'])")" >> "$GITHUB_OUTPUT"
+        cat audit-report/summary.md >> "$GITHUB_STEP_SUMMARY"
+
+    - name: Upload audit report artifact
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: security-audit-report
+        path: audit-report/
+
+    - name: Decide whether to publish
+      id: visibility
+      shell: bash
+      run: |
+        if [ "${{ inputs.publish-report }}" = "false" ]; then
+          echo "should_publish=false" >> "$GITHUB_OUTPUT"
+        elif [ "${{ inputs.publish-report }}" = "true" ]; then
+          echo "should_publish=true" >> "$GITHUB_OUTPUT"
+        elif [ "${{ github.event.repository.private }}" = "true" ]; then
+          echo "should_publish=false" >> "$GITHUB_OUTPUT"
+        else
+          echo "should_publish=true" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Note why the report wasn't published
+      if: steps.visibility.outputs.should_publish == 'false'
+      shell: bash
+      run: |
+        {
+          echo "## 🔒 Report not published"
+          echo ""
+          echo "GitHub Pages from a private repo is publicly visible on the internet unless your org has GitHub Enterprise Cloud, so this stayed as a downloadable artifact only. Pass \`publish-report: true\` to override, or set up private Pages if you're eligible."
+        } >> "$GITHUB_STEP_SUMMARY"
+
+    - name: Determine destination path
+      id: dest
+      if: steps.visibility.outputs.should_publish == 'true'
+      shell: bash
+      run: |
+        if [ "${{ github.event_name }}" = "pull_request" ]; then
+          p="reports/pr-${{ github.event.pull_request.number }}"
+        else
+          p="reports/${{ github.sha }}"
+        fi
+        echo "path=$p" >> "$GITHUB_OUTPUT"
+        echo "full_url=https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/$p/" >> "$GITHUB_OUTPUT"
+
+    - name: Deploy report under its own path
+      if: steps.visibility.outputs.should_publish == 'true'
+      uses: peaceiris/actions-gh-pages@v4
+      with:
+        github_token: ${{ github.token }}
+        publish_dir: audit-report
+        destination_dir: ${{ steps.dest.outputs.path }}
+        keep_files: true
+
+    - name: Build root redirect to latest report
+      if: steps.visibility.outputs.should_publish == 'true'
+      shell: bash
+      run: |
+        mkdir -p /tmp/root-redirect
+        printf '<!doctype html><meta http-equiv="refresh" content="0; url=%s/">' "${{ steps.dest.outputs.path }}" > /tmp/root-redirect/index.html
+
+    - name: Publish root redirect
+      if: steps.visibility.outputs.should_publish == 'true'
+      uses: peaceiris/actions-gh-pages@v4
+      with:
+        github_token: ${{ github.token }}
+        publish_dir: /tmp/root-redirect
+        keep_files: true
+
+    - name: Comment on PR with report link
+      if: steps.visibility.outputs.should_publish == 'true' && github.event_name == 'pull_request'
+      uses: marocchino/sticky-pull-request-comment@v2
+      with:
+        header: security-audit-report
+        message: |
+          ### 🔍 Security audit report
+          **[Open the full interactive report](${{ steps.dest.outputs.full_url }})**
+
+    - name: Link report in step summary
+      if: steps.visibility.outputs.should_publish == 'true'
+      shell: bash
+      run: |
+        {
+          echo "## 📄 Full interactive report"
+          echo "${{ steps.dest.outputs.full_url }}"
+        } >> "$GITHUB_STEP_SUMMARY"
+
+    - name: Fail on HIGH severity findings
+      if: inputs.fail-on-high == 'true' && steps.scan.outputs.high_count != '0'
+      shell: bash
+      run: |
+        echo "Found ${{ steps.scan.outputs.high_count }} HIGH severity finding(s). See the workflow summary and security-audit-report artifact for details."
+        exit 1
