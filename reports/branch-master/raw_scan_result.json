@@ -8,9 +8,9 @@
     "UNRATED": 0
   },
   "tool_timings_seconds": {
-    "bandit": 0.47,
-    "detect-secrets": 0.84,
-    "pip-audit": 7.14
+    "bandit": 0.41,
+    "detect-secrets": 0.9,
+    "pip-audit": 6.87
   },
   "files_scanned": 21,
   "files_skipped_from_cache": 0,
