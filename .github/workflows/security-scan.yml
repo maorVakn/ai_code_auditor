@@ -1,132 +1,26 @@
-name: Security scan - v2.0
+# This file lives in ai_code_auditor itself, so it consumes its OWN
+# action.yml via a relative path (uses: ./) instead of the public
+# "maorVakn/ai_code_auditor@v1" reference that external repos use.
+# This is how the project tests itself on every push/PR (dogfooding).
+
+name: Security scan
 
 on:
   push:
-    branches: [master]
+    branches-ignore: [gh-pages]   # run on every branch except the one the reports live on
   pull_request:
+  workflow_dispatch:   # adds a manual "Run workflow" button with a branch picker
 
 permissions:
-  contents: read
+  contents: write        # needed so this repo's own run can publish to gh-pages
+  pull-requests: write    # needed for the PR comment with the report link
 
 jobs:
   scan:
     runs-on: ubuntu-latest
-    outputs:
-      high_count: ${{ steps.scan.outputs.high_count }}
-      is_public: ${{ steps.visibility.outputs.is_public }}
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
+      - uses: ./
         with:
-          python-version: "3.12"
-          cache: "pip"
-
-      - name: Restore scan cache
-        uses: actions/cache@v4
-        with:
-          path: .audit_cache.json
-          key: audit-cache-${{ runner.os }}
-          restore-keys: |
-            audit-cache-
-
-      - name: Install dependencies
-        run: pip install -r requirements.txt
-
-      - name: Run security scan
-        id: scan
-        env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-        run: |
-          mkdir -p audit-report
-          python3 -m scanner.aggregator . requirements.txt \
-            --report-json audit-report/audit_report.json \
-            --html audit-report/index.html \
-            --markdown audit-report/summary.md \
-            > audit-report/raw_scan_result.json
-          echo "high_count=$(python3 -c "import json; print(json.load(open('audit-report/raw_scan_result.json'))['severity_counts']['HIGH'])")" >> "$GITHUB_OUTPUT"
-          cat audit-report/summary.md >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Determine repo visibility
-        id: visibility
-        run: |
-          if [ "${{ github.event.repository.private }}" = "true" ]; then
-            echo "is_public=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "is_public=true" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Upload audit report
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: security-audit-report
-          path: audit-report/
-
-      - name: Fail on HIGH severity findings
-        if: steps.scan.outputs.high_count != '0'
-        run: |
-          echo "Found ${{ steps.scan.outputs.high_count }} HIGH severity finding(s)."
-          exit 1
-
-  publish-report:
-    needs: scan
-    if: always() && needs.scan.outputs.is_public == 'true'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write        
-      pull-requests: write   
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/download-artifact@v4
-        with:
-          name: security-audit-report
-          path: audit-report
-
-      - name: Determine destination path
-        id: dest
-        run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            echo "path=reports/pr-${{ github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
-          else
-            echo "path=reports/${{ github.sha }}" >> "$GITHUB_OUTPUT"
-          fi
-          echo "url=https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}" >> "$GITHUB_OUTPUT"
-
-      - name: Deploy report to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v4
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: audit-report
-          destination_dir: ${{ steps.dest.outputs.path }}
-          keep_files: true  
-
-      - name: Comment on PR with report link
-        if: github.event_name == 'pull_request'
-        uses: marocchino/sticky-pull-request-comment@v2
-        with:
-          header: security-audit-report
-          message: |
-            ### 🔍 Security audit report
-            **[Open the full interactive report](${{ steps.dest.outputs.url }}/${{ steps.dest.outputs.path }}/)**
-
-      - name: Link report in step summary
-        run: |
-          {
-            echo "## 📄 Full interactive report"
-            echo "${{ steps.dest.outputs.url }}/${{ steps.dest.outputs.path }}/"
-          } >> "$GITHUB_STEP_SUMMARY"
-
-  private-repo-notice:
-    needs: scan
-    if: always() && needs.scan.outputs.is_public == 'false'
-    runs-on: ubuntu-latest
-    steps:
-      - run: |
-          {
-            echo "## 🔒 Private repository"
-            echo ""
-            echo "The interactive HTML report isn't auto-published, because GitHub Pages served from a private repo is publicly visible on the internet unless your org has GitHub Enterprise Cloud with private Pages enabled."
-            echo "Download it from the \`security-audit-report\` artifact above."
-          } >> "$GITHUB_STEP_SUMMARY"
+          gemini-api-key: ${{ secrets.GEMINI_API_KEY }}

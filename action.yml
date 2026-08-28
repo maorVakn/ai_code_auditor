@@ -41,11 +41,35 @@ outputs:
 runs:
   using: 'composite'
   steps:
-    # NOTE: the caller's workflow must run actions/checkout@v4 on their own
-    # repo BEFORE this action, in the same job. This action itself is
-    # checked out separately by GitHub into ${{ github.action_path }} -
-    # that's where the scanner/ package lives, not in the caller's working
-    # directory.
+    # The caller's workflow must run actions/checkout@v4 on their own repo
+    # BEFORE this action, in the same job. This action itself is checked
+    # out separately by GitHub into ${{ github.action_path }} - that's
+    # where the scanner/ package lives, not in the caller's working directory.
+
+    - name: Determine what triggered this run
+      id: trigger
+      shell: bash
+      run: |
+        case "${{ github.event_name }}" in
+          pull_request)
+            branch="${{ github.head_ref }}"
+            desc="Pull request from \`${{ github.head_ref }}\` into \`${{ github.base_ref }}\`"
+            ;;
+          workflow_dispatch)
+            branch="${{ github.ref_name }}"
+            desc="Manual run on branch \`${{ github.ref_name }}\`"
+            ;;
+          push)
+            branch="${{ github.ref_name }}"
+            desc="Push to \`${{ github.ref_name }}\`"
+            ;;
+          *)
+            branch="${{ github.ref_name }}"
+            desc="Triggered by ${{ github.event_name }} on \`${{ github.ref_name }}\`"
+            ;;
+        esac
+        echo "branch=$branch" >> "$GITHUB_OUTPUT"
+        echo "## ▶️ $desc" >> "$GITHUB_STEP_SUMMARY"
 
     - name: Set up Python
       uses: actions/setup-python@v5
@@ -59,18 +83,20 @@ runs:
     - name: Restore scan cache
       uses: actions/cache@v4
       with:
+        # Separate cache key per branch, so a run on dev can't clobber or
+        # get clobbered by main/master's cache.
         path: .audit_cache.json
-        key: audit-cache-${{ runner.os }}
+        key: audit-cache-${{ runner.os }}-${{ steps.trigger.outputs.branch }}
         restore-keys: |
-          audit-cache-
+          audit-cache-${{ runner.os }}-${{ steps.trigger.outputs.branch }}
 
     - name: Run security scan
       id: scan
       shell: bash
       env:
         GEMINI_API_KEY: ${{ inputs.gemini-api-key }}
-        # makes `scanner` importable even though it physically lives under
-        # the action's own checkout, not the caller's working directory
+        # Makes `scanner` importable even though it physically lives under
+        # the action's own checkout, not the caller's working directory.
         PYTHONPATH: ${{ github.action_path }}
       run: |
         mkdir -p audit-report
@@ -119,12 +145,15 @@ runs:
       shell: bash
       run: |
         if [ "${{ github.event_name }}" = "pull_request" ]; then
-          p="reports/pr-${{ github.event.pull_request.number }}"
+          path="reports/pr-${{ github.event.pull_request.number }}"
         else
-          p="reports/${{ github.sha }}"
+          # push or manual dispatch: one stable path per branch, instead
+          # of a new folder for every single commit
+          safe_branch=$(echo "${{ steps.trigger.outputs.branch }}" | tr '/' '-')
+          path="reports/branch-${safe_branch}"
         fi
-        echo "path=$p" >> "$GITHUB_OUTPUT"
-        echo "full_url=https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/$p/" >> "$GITHUB_OUTPUT"
+        echo "path=$path" >> "$GITHUB_OUTPUT"
+        echo "full_url=https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/$path/" >> "$GITHUB_OUTPUT"
 
     - name: Deploy report under its own path
       if: steps.visibility.outputs.should_publish == 'true'
