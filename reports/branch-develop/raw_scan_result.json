@@ -8,12 +8,12 @@
     "UNRATED": 0
   },
   "tool_timings_seconds": {
-    "bandit": 0.46,
-    "detect-secrets": 1.22,
-    "semgrep": 4.56,
-    "pip-audit": 10.79
+    "bandit": 0.7,
+    "detect-secrets": 1.05,
+    "semgrep": 5.02,
+    "pip-audit": 11.72
   },
-  "files_scanned": 22,
+  "files_scanned": 24,
   "files_skipped_from_cache": 0,
   "findings": [
     {
