@@ -42,6 +42,7 @@ def redact_cache(cache: dict) -> dict:
     for entry in clean.get("files", {}).values():
         entry["bandit"] = redact_findings(entry.get("bandit", []))
         entry["secrets"] = redact_findings(entry.get("secrets", []))
+        entry["semgrep"] = redact_findings(entry.get("semgrep", []))
     for dep_hash, findings in clean.get("dependencies", {}).items():
         clean["dependencies"][dep_hash] = redact_findings(findings)
     return clean

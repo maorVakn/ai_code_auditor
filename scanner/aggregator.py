@@ -1,26 +1,32 @@
 """
-Merges the results of all scanners (bandit, detect-secrets, pip-audit)
-into a single finding list, and assigns a unique ID to each finding.
-This is the output of "stage 1" in the architecture - before it gets
-sent to the AI.
+Merges the results of all scanners (bandit, detect-secrets, pip-audit,
+semgrep) into a single finding list, and assigns a unique ID to each
+finding. This is the output of "stage 1" in the architecture - before it
+gets sent to the AI.
 
 Two performance techniques are used together:
 
-1. Concurrency: the three tools each run in a separate thread
-   (ThreadPoolExecutor) instead of sequentially. This makes sense
-   because each of them essentially launches an external subprocess
-   and waits for it - meaning the thread spends most of its time
-   "sleeping" on I/O, not doing actual computation. This is the
-   classic case where threads help in Python despite the GIL, because
-   the GIL is released while waiting on a subprocess.
+1. Concurrency: each tool runs in a separate thread (ThreadPoolExecutor)
+   instead of sequentially. This makes sense because each of them
+   essentially launches an external subprocess and waits for it - meaning
+   the thread spends most of its time "sleeping" on I/O, not doing actual
+   computation. This is the classic case where threads help in Python
+   despite the GIL, because the GIL is released while waiting on a
+   subprocess.
 
-2. Content-hash caching (scanner/cache.py): before running bandit or
-   detect-secrets, every file's content is hashed. Files whose hash
-   matches a previous run are skipped entirely - only new or changed
-   files are actually sent to the tools. The same applies to
-   requirements.txt for pip-audit. This matters most in CI/CD: a PR
-   that touches one file out of a hundred shouldn't re-scan the other
-   ninety-nine or re-hit osv.dev for unchanged dependencies.
+2. Content-hash caching (scanner/cache.py): before running the code-level
+   tools, every file's content is hashed. Files whose hash matches a
+   previous run are skipped entirely - only new or changed files are
+   actually sent to the tools. The same applies to requirements.txt for
+   pip-audit. This matters most in CI/CD: a PR that touches one file out
+   of a hundred shouldn't re-scan the other ninety-nine or re-hit osv.dev
+   for unchanged dependencies.
+
+Language ownership: bandit only ever receives .py files, and semgrep only
+ever receives everything else. This is a deliberate, structural split -
+not a dedup pass after the fact - so the same file is never analyzed for
+code vulnerabilities by two tools at once, and there's no risk of the same
+issue being reported twice under two different rule IDs.
 """
 from __future__ import annotations
 
@@ -36,6 +42,7 @@ from scanner.ai_report import build_audit_report
 from scanner.bandit_scan import run_bandit
 from scanner.secrets_scan import run_secrets_scan
 from scanner.deps_scan import run_deps_scan
+from scanner.semgrep_scan import run_semgrep
 from scanner.html_report import write_html_report
 from scanner.markdown_report import write_markdown_report
 from scanner import cache as cache_module
@@ -71,14 +78,15 @@ def _collect_files(root_path: str) -> list[str]:
 def _partition_by_cache(cache: dict, files: list[str]) -> tuple[list[str], dict]:
     """
     Splits files into two groups based on the cache:
-    - changed_files: need to be (re)scanned by bandit/detect-secrets
-    - cached_findings: {"bandit": [...], "secrets": [...]} already
-      known and valid for unchanged files - reused as-is
+    - changed_files: need to be (re)scanned
+    - cached_findings: {"bandit": [...], "secrets": [...], "semgrep": [...]}
+      already known and valid for unchanged files - reused as-is
     Returns (changed_files, cached_findings).
     """
     changed_files = []
     cached_bandit = []
     cached_secrets = []
+    cached_semgrep = []
 
     for file_path in files:
         try:
@@ -90,10 +98,11 @@ def _partition_by_cache(cache: dict, files: list[str]) -> tuple[list[str], dict]
         if hit is not None:
             cached_bandit += hit["bandit"]
             cached_secrets += hit["secrets"]
+            cached_semgrep += hit["semgrep"]
         else:
             changed_files.append(file_path)
 
-    return changed_files, {"bandit": cached_bandit, "secrets": cached_secrets}
+    return changed_files, {"bandit": cached_bandit, "secrets": cached_secrets, "semgrep": cached_semgrep}
 
 
 def run_full_scan(
@@ -104,10 +113,10 @@ def run_full_scan(
     cache_path: str = cache_module.DEFAULT_CACHE_PATH,
 ) -> dict:
     """
-    Runs a full scan: code (bandit + secrets) and dependencies (if a
-    requirements file is supplied). The three tools run concurrently,
-    and unchanged files/dependencies (per the on-disk cache) are
-    skipped entirely rather than re-scanned.
+    Runs a full scan: code (bandit + semgrep + secrets) and dependencies
+    (if a requirements file is supplied). Tools run concurrently, and
+    unchanged files/dependencies (per the on-disk cache) are skipped
+    entirely rather than re-scanned.
     """
     if requirements_path is None:
         guess = os.path.join(code_path, "requirements.txt")
@@ -123,6 +132,12 @@ def run_full_scan(
         skipped = len(all_files) - len(changed_files)
         print(f"[cache] {skipped}/{len(all_files)} files unchanged, skipping re-scan", file=sys.stderr)
 
+    # bandit owns Python exclusively; semgrep owns everything else. A file
+    # is never handed to both, so there's no possibility of the same issue
+    # being reported twice by two different tools.
+    python_files = [f for f in changed_files if f.endswith(".py")]
+    non_python_files = [f for f in changed_files if not f.endswith(".py")]
+
     # dependencies: hash the whole requirements.txt content, reuse
     # cached findings if it's byte-for-byte identical to a past run
     deps_hash = None
@@ -134,14 +149,18 @@ def run_full_scan(
 
     # only build tasks for tools that actually have new work to do
     tasks = {}
+    if python_files:
+        tasks["bandit"] = lambda: run_bandit(python_files)
     if changed_files:
-        tasks["bandit"] = lambda: run_bandit(changed_files)
         tasks["detect-secrets"] = lambda: run_secrets_scan(changed_files)
+    if non_python_files:
+        tasks["semgrep"] = lambda: run_semgrep(non_python_files)
     if requirements_path and os.path.isfile(requirements_path) and cached_deps_findings is None:
         tasks["pip-audit"] = lambda: run_deps_scan(requirements_path)
 
     fresh_bandit_findings = []
     fresh_secrets_findings = []
+    fresh_semgrep_findings = []
     fresh_deps_findings = cached_deps_findings if cached_deps_findings is not None else []
     timings = {}
 
@@ -157,6 +176,8 @@ def run_full_scan(
                     fresh_bandit_findings = result
                 elif name == "detect-secrets":
                     fresh_secrets_findings = result
+                elif name == "semgrep":
+                    fresh_semgrep_findings = result
                 elif name == "pip-audit":
                     fresh_deps_findings = result
                 if verbose:
@@ -168,8 +189,9 @@ def run_full_scan(
     if use_cache:
         fresh_bandit_findings = redact_findings(fresh_bandit_findings)
         fresh_secrets_findings = redact_findings(fresh_secrets_findings)
+        fresh_semgrep_findings = redact_findings(fresh_semgrep_findings)
         fresh_deps_findings = redact_findings(fresh_deps_findings)
-        _update_file_cache(cache, changed_files, fresh_bandit_findings, fresh_secrets_findings)
+        _update_file_cache(cache, changed_files, fresh_bandit_findings, fresh_secrets_findings, fresh_semgrep_findings)
         if deps_hash and cached_deps_findings is None:
             cache_module.set_cached_dependency_findings(cache, deps_hash, fresh_deps_findings)
         cache_module.save_cache(cache, cache_path)
@@ -177,6 +199,7 @@ def run_full_scan(
     findings = (
         cached_findings["bandit"] + fresh_bandit_findings
         + cached_findings["secrets"] + fresh_secrets_findings
+        + cached_findings["semgrep"] + fresh_semgrep_findings
         + fresh_deps_findings
     )
     findings = redact_findings(findings)
@@ -200,7 +223,11 @@ def run_full_scan(
 
 
 def _update_file_cache(
-    cache: dict, changed_files: list[str], bandit_findings: list[dict], secrets_findings: list[dict]
+    cache: dict,
+    changed_files: list[str],
+    bandit_findings: list[dict],
+    secrets_findings: list[dict],
+    semgrep_findings: list[dict],
 ) -> None:
     """Writes fresh per-file results back into the cache, grouped by
     which file each finding belongs to."""
@@ -211,6 +238,10 @@ def _update_file_cache(
     secrets_by_file: dict[str, list] = {}
     for f in secrets_findings:
         secrets_by_file.setdefault(f["file"], []).append(f)
+
+    semgrep_by_file: dict[str, list] = {}
+    for f in semgrep_findings:
+        semgrep_by_file.setdefault(f["file"], []).append(f)
 
     for file_path in changed_files:
         try:
@@ -223,6 +254,7 @@ def _update_file_cache(
             file_hash,
             bandit_by_file.get(file_path, []),
             secrets_by_file.get(file_path, []),
+            semgrep_by_file.get(file_path, []),
         )
 
  
