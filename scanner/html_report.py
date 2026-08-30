@@ -190,7 +190,7 @@ def render_html_report(report: dict) -> str:
       top: 12px;
       z-index: 10;
     }}
-    input, select, button {{
+    input, select {{
       height: 40px;
       border: 1px solid var(--line);
       border-radius: 8px;
@@ -202,7 +202,36 @@ def render_html_report(report: dict) -> str:
       outline: none;
       transition: border-color 0.15s ease, box-shadow 0.15s ease;
     }}
+    button {{
+      height: 40px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--input-bg);
+      padding: 0 14px;
+      font: inherit;
+      font-size: 14px;
+      color: var(--text);
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }}
     input:focus, select:focus {{ border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15); }}
+    button:focus-visible, .theme-toggle:focus-visible {{
+      outline: 2px solid #3b82f6;
+      outline-offset: 2px;
+    }}
+    .visually-hidden {{
+      position: absolute;
+      width: 1px; height: 1px;
+      padding: 0; margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }}
+    @media (prefers-reduced-motion: reduce) {{
+      *, *::before, *::after {{
+        transition-duration: 0.001ms !important;
+      }}
+    }}
     input {{ flex: 1; min-width: 200px; }}
     select {{ cursor: pointer; }}
     .toolbar button {{
@@ -266,8 +295,8 @@ def render_html_report(report: dict) -> str:
     .row {{ display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }}
     .loc {{ color: var(--muted); font-size: 13px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }}
 
-    .finding p {{ margin: 8px 0; font-size: 14px; color: var(--text); opacity: 0.85; }}
-    .finding p strong {{ color: var(--text); opacity: 1; }}
+    .finding p {{ margin: 8px 0; font-size: 14px; color: var(--muted); }}
+    .finding p strong {{ color: var(--text); }}
 
     pre {{
       white-space: pre-wrap;
@@ -283,9 +312,9 @@ def render_html_report(report: dict) -> str:
     }}
 
     .copy {{
-      height: 32px;
-      padding: 0 12px;
-      font-size: 12px;
+      height: 40px;
+      padding: 0 14px;
+      font-size: 13px;
       background: var(--unrated-bg);
       color: var(--text);
       border: 1px solid var(--line);
@@ -321,8 +350,8 @@ def render_html_report(report: dict) -> str:
         <h1>Security Audit Report</h1>
         <p class="meta">Path: {html.escape(str(summary.get("scanned_path", "")))} · Sorted by severity</p>
       </div>
-      <button class="theme-toggle" id="theme-toggle" onclick="toggleTheme()" aria-label="Toggle dark mode">
-        <span id="theme-icon">🌙</span><span id="theme-label">Dark mode</span>
+      <button class="theme-toggle" id="theme-toggle" onclick="toggleTheme()" aria-pressed="false" aria-label="Toggle dark mode">
+        <span id="theme-icon" aria-hidden="true">🌙</span><span id="theme-label">Dark mode</span>
       </button>
     </div>
   </header>
@@ -336,7 +365,9 @@ def render_html_report(report: dict) -> str:
     </section>
     <section class="notice"><strong>{html.escape(ai_status)}</strong> · {html.escape(str(ai_detail))}</section>
     <section class="toolbar">
+      <label class="visually-hidden" for="q">Filter findings by file, rule, or text</label>
       <input id="q" placeholder="Filter by file, rule, text..." oninput="filterFindings()">
+      <label class="visually-hidden" for="sev">Filter by severity</label>
       <select id="sev" onchange="filterFindings()">
         <option value="">All severities</option>
         <option>HIGH</option>
@@ -346,7 +377,7 @@ def render_html_report(report: dict) -> str:
       </select>
       <button onclick="copyAll()" id="copy-all-btn">Copy JSON</button>
     </section>
-    <p class="result-count" id="result-count"></p>
+    <p class="result-count" id="result-count" role="status" aria-live="polite"></p>
     <section id="findings">{cards}</section>
   </main>
   <script id="findings-data" type="application/json">{findings_json}</script>
@@ -381,12 +412,14 @@ def render_html_report(report: dict) -> str:
       copyText(JSON.stringify(findings, null, 2));
       const btn = document.getElementById('copy-all-btn');
       const original = btn.textContent;
+      btn.setAttribute('aria-live', 'polite');
       btn.textContent = 'Copied!';
       setTimeout(() => {{ btn.textContent = original; }}, 1200);
     }}
 
     function flashCopied(btn) {{
       const original = btn.textContent;
+      btn.setAttribute('aria-live', 'polite');
       btn.textContent = 'Copied!';
       btn.classList.add('copied');
       setTimeout(() => {{ btn.textContent = original; btn.classList.remove('copied'); }}, 1200);
@@ -397,6 +430,8 @@ def render_html_report(report: dict) -> str:
       document.documentElement.setAttribute('data-theme', theme);
       const icon = document.getElementById('theme-icon');
       const label = document.getElementById('theme-label');
+      const toggleBtn = document.getElementById('theme-toggle');
+      toggleBtn.setAttribute('aria-pressed', theme === 'dark' ? 'true' : 'false');
       if (theme === 'dark') {{
         icon.textContent = '☀️';
         label.textContent = 'Light mode';
@@ -439,7 +474,7 @@ def _finding_card(finding: dict, index: int) -> str:
     return f"""<article class="finding sev-{severity}" data-index="{index}">
   <div class="finding-head">
     <div>
-      <h2>{icon} {title}</h2>
+      <h2><span aria-hidden="true">{icon}</span> {title}</h2>
       <div class="loc">{loc}</div>
       <div class="row">
         <span class="tool">{tool}</span>
